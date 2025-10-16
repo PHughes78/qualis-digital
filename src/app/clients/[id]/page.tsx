@@ -1,0 +1,514 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useAuth } from '@/contexts/AuthContext'
+import { createClient } from '@/lib/supabase/client'
+import ProtectedRoute from '@/components/auth/ProtectedRoute'
+import DashboardLayout from '@/components/layout/DashboardLayout'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { 
+  ArrowLeft, 
+  User, 
+  Calendar, 
+  Phone, 
+  Home, 
+  MapPin,
+  Heart,
+  Pill,
+  AlertTriangle,
+  FileText,
+  Edit
+} from 'lucide-react'
+import Link from 'next/link'
+import { useParams } from 'next/navigation'
+
+interface Client {
+  id: string
+  first_name: string
+  last_name: string
+  date_of_birth: string
+  gender: string
+  nhs_number: string | null
+  room_number: string | null
+  admission_date: string | null
+  discharge_date: string | null
+  address: string | null
+  postcode: string | null
+  emergency_contact_name: string | null
+  emergency_contact_phone: string | null
+  emergency_contact_relationship: string | null
+  gp_name: string | null
+  gp_practice: string | null
+  gp_phone: string | null
+  dietary_requirements: string | null
+  allergies: string | null
+  medical_conditions: string | null
+  medications: string | null
+  mobility_notes: string | null
+  communication_notes: string | null
+  is_active: boolean
+  care_home_id: string
+  care_homes: {
+    id: string
+    name: string
+    address: string
+    postcode: string
+    phone: string
+  } | null
+}
+
+export default function ClientDetailPage() {
+  const { profile } = useAuth()
+  const params = useParams()
+  const clientId = params?.id as string
+  const [client, setClient] = useState<Client | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const supabase = createClient()
+
+  useEffect(() => {
+    if (clientId) {
+      fetchClient()
+    }
+  }, [clientId])
+
+  const fetchClient = async () => {
+    try {
+      setLoading(true)
+      const { data, error } = await supabase
+        .from('clients')
+        .select(`
+          *,
+          care_homes (
+            id,
+            name,
+            address,
+            postcode,
+            phone
+          )
+        `)
+        .eq('id', clientId)
+        .single()
+
+      if (error) {
+        console.error('Error fetching client:', error)
+        setError('Failed to load client details')
+        return
+      }
+
+      setClient(data)
+    } catch (err) {
+      console.error('Exception fetching client:', err)
+      setError('An error occurred while loading client')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const calculateAge = (dateOfBirth: string) => {
+    const today = new Date()
+    const birthDate = new Date(dateOfBirth)
+    let age = today.getFullYear() - birthDate.getFullYear()
+    const monthDiff = today.getMonth() - birthDate.getMonth()
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--
+    }
+    return age
+  }
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'Not recorded'
+    return new Date(dateString).toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric'
+    })
+  }
+
+  const getGenderDisplay = (gender: string) => {
+    return gender.split('_').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ')
+  }
+
+  if (loading) {
+    return (
+      <ProtectedRoute allowedRoles={['business_owner', 'manager', 'carer']}>
+        <DashboardLayout>
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          </div>
+        </DashboardLayout>
+      </ProtectedRoute>
+    )
+  }
+
+  if (error || !client) {
+    return (
+      <ProtectedRoute allowedRoles={['business_owner', 'manager', 'carer']}>
+        <DashboardLayout>
+          <div className="space-y-6">
+            <Button asChild variant="ghost">
+              <Link href="/clients">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Clients
+              </Link>
+            </Button>
+            <Card className="border-red-200 bg-red-50">
+              <CardContent className="pt-6">
+                <p className="text-red-600 text-center">{error || 'Client not found'}</p>
+              </CardContent>
+            </Card>
+          </div>
+        </DashboardLayout>
+      </ProtectedRoute>
+    )
+  }
+
+  return (
+    <ProtectedRoute allowedRoles={['business_owner', 'manager', 'carer']}>
+      <DashboardLayout>
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex justify-between items-start">
+            <div>
+              <Button asChild variant="ghost" className="mb-4">
+                <Link href="/clients">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Clients
+                </Link>
+              </Button>
+              <div className="flex items-center gap-4">
+                <div className="bg-blue-100 rounded-full p-4">
+                  <User className="h-8 w-8 text-blue-600" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold text-gray-900">
+                    {client.first_name} {client.last_name}
+                  </h1>
+                  <div className="flex gap-2 mt-2">
+                    <Badge variant={client.is_active ? "default" : "outline"}>
+                      {client.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
+                    <Badge variant="outline">
+                      {calculateAge(client.date_of_birth)} years old
+                    </Badge>
+                    <Badge variant="outline">
+                      {getGenderDisplay(client.gender)}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {(profile?.role === 'business_owner' || profile?.role === 'manager') && (
+              <Button asChild>
+                <Link href={`/clients/${client.id}/edit`}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Client
+                </Link>
+              </Button>
+            )}
+          </div>
+
+          <Tabs defaultValue="overview" className="space-y-6">
+            <TabsList>
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="health">Health Information</TabsTrigger>
+              <TabsTrigger value="contacts">Contacts</TabsTrigger>
+              <TabsTrigger value="care">Care Details</TabsTrigger>
+            </TabsList>
+
+            {/* Overview Tab */}
+            <TabsContent value="overview" className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Basic Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Basic Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Date of Birth:</span>
+                      <span className="font-medium">{formatDate(client.date_of_birth)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Age:</span>
+                      <span className="font-medium">{calculateAge(client.date_of_birth)} years</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Gender:</span>
+                      <span className="font-medium">{getGenderDisplay(client.gender)}</span>
+                    </div>
+                    {client.nhs_number && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">NHS Number:</span>
+                        <span className="font-mono font-medium">{client.nhs_number}</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Care Home Information */}
+                {client.care_homes && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Home className="h-5 w-5 text-blue-600" />
+                        Care Home
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div>
+                        <p className="font-medium text-lg">{client.care_homes.name}</p>
+                        <p className="text-gray-600 text-sm mt-1">{client.care_homes.address}</p>
+                        <p className="text-gray-600 text-sm">{client.care_homes.postcode}</p>
+                      </div>
+                      {client.room_number && (
+                        <div className="pt-3 border-t">
+                          <span className="text-gray-600">Room Number:</span>
+                          <span className="font-medium ml-2">{client.room_number}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 text-sm">
+                        <Phone className="h-4 w-4 text-gray-400" />
+                        <span className="text-gray-700">{client.care_homes.phone}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Admission Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Calendar className="h-5 w-5 text-blue-600" />
+                      Admission Details
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Admission Date:</span>
+                      <span className="font-medium">{formatDate(client.admission_date)}</span>
+                    </div>
+                    {client.discharge_date && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Discharge Date:</span>
+                        <span className="font-medium">{formatDate(client.discharge_date)}</span>
+                      </div>
+                    )}
+                    {client.admission_date && !client.discharge_date && (
+                      <div className="pt-3 border-t">
+                        <span className="text-gray-600">Length of Stay:</span>
+                        <span className="font-medium ml-2">
+                          {Math.floor((new Date().getTime() - new Date(client.admission_date).getTime()) / (1000 * 60 * 60 * 24))} days
+                        </span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Previous Address */}
+                {(client.address || client.postcode) && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <MapPin className="h-5 w-5 text-blue-600" />
+                        Previous Address
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {client.address && <p className="text-gray-700">{client.address}</p>}
+                      {client.postcode && <p className="text-gray-700 mt-1">{client.postcode}</p>}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </TabsContent>
+
+            {/* Health Information Tab */}
+            <TabsContent value="health" className="space-y-6">
+              <div className="grid grid-cols-1 gap-6">
+                {/* Allergies */}
+                {client.allergies && (
+                  <Card className="border-red-200">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-red-700">
+                        <AlertTriangle className="h-5 w-5" />
+                        Allergies
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-gray-700 whitespace-pre-wrap">{client.allergies}</p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Medical Conditions */}
+                {client.medical_conditions && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Heart className="h-5 w-5 text-blue-600" />
+                        Medical Conditions
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-gray-700 whitespace-pre-wrap">{client.medical_conditions}</p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Medications */}
+                {client.medications && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Pill className="h-5 w-5 text-blue-600" />
+                        Current Medications
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-gray-700 whitespace-pre-wrap">{client.medications}</p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Dietary Requirements */}
+                {client.dietary_requirements && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Dietary Requirements</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-gray-700 whitespace-pre-wrap">{client.dietary_requirements}</p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </TabsContent>
+
+            {/* Contacts Tab */}
+            <TabsContent value="contacts" className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Emergency Contact */}
+                {client.emergency_contact_name && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-red-700">Emergency Contact</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div>
+                        <p className="text-gray-600 text-sm">Name</p>
+                        <p className="font-medium text-lg">{client.emergency_contact_name}</p>
+                      </div>
+                      {client.emergency_contact_phone && (
+                        <div>
+                          <p className="text-gray-600 text-sm">Phone</p>
+                          <p className="font-medium">{client.emergency_contact_phone}</p>
+                        </div>
+                      )}
+                      {client.emergency_contact_relationship && (
+                        <div>
+                          <p className="text-gray-600 text-sm">Relationship</p>
+                          <p className="font-medium">{client.emergency_contact_relationship}</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* GP Information */}
+                {(client.gp_name || client.gp_practice) && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>GP Information</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {client.gp_name && (
+                        <div>
+                          <p className="text-gray-600 text-sm">GP Name</p>
+                          <p className="font-medium">{client.gp_name}</p>
+                        </div>
+                      )}
+                      {client.gp_practice && (
+                        <div>
+                          <p className="text-gray-600 text-sm">Practice</p>
+                          <p className="font-medium">{client.gp_practice}</p>
+                        </div>
+                      )}
+                      {client.gp_phone && (
+                        <div>
+                          <p className="text-gray-600 text-sm">Phone</p>
+                          <p className="font-medium">{client.gp_phone}</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </TabsContent>
+
+            {/* Care Details Tab */}
+            <TabsContent value="care" className="space-y-6">
+              <div className="grid grid-cols-1 gap-6">
+                {/* Mobility Notes */}
+                {client.mobility_notes && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Mobility Notes</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-gray-700 whitespace-pre-wrap">{client.mobility_notes}</p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Communication Notes */}
+                {client.communication_notes && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Communication Notes</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-gray-700 whitespace-pre-wrap">{client.communication_notes}</p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Quick Actions */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Care Management</CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex flex-wrap gap-4">
+                    <Button asChild variant="outline">
+                      <Link href={`/clients/${client.id}/care-plans`}>
+                        <FileText className="h-4 w-4 mr-2" />
+                        View Care Plans
+                      </Link>
+                    </Button>
+                    <Button asChild variant="outline">
+                      <Link href={`/clients/${client.id}/assessments`}>
+                        <FileText className="h-4 w-4 mr-2" />
+                        View Assessments
+                      </Link>
+                    </Button>
+                    <Button asChild variant="outline">
+                      <Link href={`/clients/${client.id}/incidents`}>
+                        <AlertTriangle className="h-4 w-4 mr-2" />
+                        View Incidents
+                      </Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </DashboardLayout>
+    </ProtectedRoute>
+  )
+}
