@@ -441,6 +441,29 @@ export interface Database {
           updated_at?: string;
         };
       };
+      manager_care_homes: {
+        Row: {
+          id: string;
+          manager_id: string;
+          care_home_id: string;
+          assigned_at: string;
+          assigned_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          manager_id: string;
+          care_home_id: string;
+          assigned_at?: string;
+          assigned_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          manager_id?: string;
+          care_home_id?: string;
+          assigned_at?: string;
+          assigned_by?: string | null;
+        };
+      };
       user_care_homes: {
         Row: {
           user_id: string;

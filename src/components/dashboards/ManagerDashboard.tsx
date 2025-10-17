@@ -3,7 +3,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Users, Home, FileText, AlertTriangle, Calendar, BarChart3, UserPlus, Plus } from 'lucide-react'
+import { Users, Home, FileText, AlertTriangle, Calendar, BarChart3, UserPlus, Plus, User } from 'lucide-react'
 import Link from 'next/link'
 
 export default function ManagerDashboard() {
@@ -11,8 +11,8 @@ export default function ManagerDashboard() {
     <div className="space-y-6">
       {/* Welcome Header */}
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Manager Dashboard</h2>
-        <p className="text-gray-600">Overview of your care homes and team performance.</p>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Manager Dashboard</h2>
+        <p className="text-gray-600 dark:text-gray-400">Overview of your care homes and team performance.</p>
       </div>
 
       {/* Key Metrics */}
@@ -209,6 +209,12 @@ export default function ManagerDashboard() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Button asChild variant="outline" className="h-20 flex-col space-y-2">
+              <Link href="/profile">
+                <User className="h-6 w-6" />
+                <span>Profile</span>
+              </Link>
+            </Button>
             <Button asChild variant="outline" className="h-20 flex-col space-y-2">
               <Link href="/care-homes">
                 <Home className="h-6 w-6" />

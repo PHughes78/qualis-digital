@@ -1,14 +1,15 @@
 'use client'
 
 import { useAuth } from '@/contexts/AuthContext'
+import { useCompanySettings } from '@/contexts/CompanySettingsContext'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Home, Users, FileText, AlertTriangle, BarChart3, Settings, LogOut, Menu } from 'lucide-react'
+import { Home, Users, FileText, AlertTriangle, BarChart3, LogOut, Menu, Bell, Search, UserCog, User } from 'lucide-react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
+import Image from 'next/image'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -16,7 +17,12 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { profile, signOut } = useAuth()
+  const { settings } = useCompanySettings()
   const router = useRouter()
+  const pathname = usePathname()
+
+  const companyName = settings?.company_name || "Qualis Digital"
+  const logoUrl = settings?.logo_url || "/vercel.svg"
 
   const handleSignOut = async () => {
     await signOut()
@@ -30,11 +36,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const getRoleColor = (role: string) => {
     switch (role) {
       case 'business_owner':
-        return 'bg-purple-100 text-purple-800'
+        return 'bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0'
       case 'manager':
-        return 'bg-blue-100 text-blue-800'
+        return 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-0'
       case 'carer':
-        return 'bg-green-100 text-green-800'
+        return 'bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0'
       default:
         return 'bg-gray-100 text-gray-800'
     }
@@ -60,7 +66,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: 'Care Plans', href: '/care-plans', icon: FileText, roles: ['carer', 'manager', 'business_owner'] },
     { name: 'Handovers', href: '/handovers', icon: FileText, roles: ['carer', 'manager', 'business_owner'] },
     { name: 'Incidents', href: '/incidents', icon: AlertTriangle, roles: ['carer', 'manager', 'business_owner'] },
-    { name: 'Settings', href: '/settings', icon: Settings, roles: ['manager', 'business_owner'] },
   ]
 
   const filteredNavigation = navigationItems.filter(item => 
@@ -68,24 +73,32 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   )
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-purple-50/20">
       {/* Navigation Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-white/80 backdrop-blur-md shadow-soft border-b border-gray-200/50 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo and Navigation */}
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <h1 className="text-xl font-bold text-gray-900">Qualis <span className="text-blue-600">Digital</span></h1>
+                <div className="flex items-center gap-3">
+                  <Image src={logoUrl} alt="Logo" width={32} height={32} className="rounded-md" />
+                  <h1 className="text-xl font-bold text-gray-900">{companyName}</h1>
+                </div>
               </div>
-              <nav className="hidden md:flex ml-10 space-x-8">
+              <nav className="hidden md:flex ml-10 space-x-2">
                 {filteredNavigation.map((item) => {
                   const Icon = item.icon
+                  const isActive = pathname === item.href
                   return (
                     <Link
                       key={item.name}
                       href={item.href}
-                      className="flex items-center px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
+                      className={`flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                        isActive 
+                          ? 'bg-gradient-primary text-white shadow-md' 
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100/80'
+                      }`}
                     >
                       <Icon className="h-4 w-4 mr-2" />
                       {item.name}
@@ -95,20 +108,33 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               </nav>
             </div>
 
-            {/* User Profile */}
-            <div className="flex items-center space-x-4">
+            {/* User Profile & Actions */}
+            <div className="flex items-center space-x-3">
+              {/* Search Button */}
+              <Button variant="ghost" size="sm" className="hidden sm:flex rounded-full hover:bg-gray-100">
+                <Search className="h-4 w-4" />
+              </Button>
+
+              {/* Notifications */}
+              <Button variant="ghost" size="sm" className="relative rounded-full hover:bg-gray-100">
+                <Bell className="h-4 w-4" />
+                <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full"></span>
+              </Button>
+
+              {/* Role Badge */}
               {profile && (
-                <Badge variant="outline" className={getRoleColor(profile.role)}>
+                <Badge className={`${getRoleColor(profile.role)} shadow-sm`}>
                   {getRoleDisplay(profile.role)}
                 </Badge>
               )}
               
+              {/* User Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                    <Avatar className="h-8 w-8">
+                  <Button variant="ghost" className="relative h-10 w-10 rounded-full ring-2 ring-offset-2 ring-blue-500/20 hover:ring-blue-500/40 transition-all">
+                    <Avatar className="h-10 w-10">
                       <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.first_name} />
-                      <AvatarFallback>
+                      <AvatarFallback className="bg-gradient-primary text-white">
                         {profile ? getInitials(profile.first_name, profile.last_name) : 'U'}
                       </AvatarFallback>
                     </Avatar>
@@ -126,14 +152,28 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/profile">
-                      <Settings className="mr-2 h-4 w-4" />
+                  
+                  {/* Users Management - Business Owner Only */}
+                  {profile?.role === 'business_owner' && (
+                    <>
+                      <DropdownMenuItem asChild className="cursor-pointer">
+                        <Link href="/users" className="flex items-center">
+                          <UserCog className="mr-2 h-4 w-4" />
+                          User Management
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
+                  
+                  <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link href="/profile" className="flex items-center">
+                      <User className="mr-2 h-4 w-4" />
                       Profile Settings
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut}>
+                  <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-red-600 focus:text-red-600">
                     <LogOut className="mr-2 h-4 w-4" />
                     Sign Out
                   </DropdownMenuItem>
@@ -141,7 +181,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               </DropdownMenu>
 
               {/* Mobile menu button */}
-              <Button variant="ghost" size="sm" className="md:hidden">
+              <Button variant="ghost" size="sm" className="md:hidden rounded-full">
                 <Menu className="h-5 w-5" />
               </Button>
             </div>
@@ -150,7 +190,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+      <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         {children}
       </main>
     </div>

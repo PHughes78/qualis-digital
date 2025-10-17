@@ -43,10 +43,38 @@ export default function CareHomesPage() {
   const fetchCareHomes = async () => {
     try {
       setLoading(true)
-      const { data, error } = await supabase
+      
+      let query = supabase
         .from('care_homes')
         .select('*')
         .order('name', { ascending: true })
+
+      // If user is a manager, only show their assigned care homes
+      if (profile?.role === 'manager') {
+        const { data: assignments, error: assignError } = await supabase
+          .from('manager_care_homes')
+          .select('care_home_id')
+          .eq('manager_id', profile.id)
+
+        if (assignError) {
+          console.error('Error fetching manager assignments:', assignError)
+          setError('Failed to load care home assignments')
+          return
+        }
+
+        const assignedHomeIds = assignments.map(a => a.care_home_id)
+        
+        if (assignedHomeIds.length === 0) {
+          // Manager has no assigned homes
+          setCareHomes([])
+          setLoading(false)
+          return
+        }
+
+        query = query.in('id', assignedHomeIds)
+      }
+
+      const { data, error } = await query
 
       if (error) {
         console.error('Error fetching care homes:', error)
@@ -201,36 +229,39 @@ export default function CareHomesPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {careHomes.map((home) => (
                 <Card key={home.id} className="hover:shadow-lg transition-shadow overflow-hidden">
-                  {/* Care Home Image */}
-                  {home.image_url && (
-                    <div className="relative h-56 w-full bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
+                  {/* Care Home Image - Always shown with placeholder if no image */}
+                  <div className="relative h-56 w-full bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 overflow-hidden">
+                    {home.image_url ? (
                       <img
                         src={home.image_url}
                         alt={home.name}
                         className="w-full h-full object-cover object-center"
                         loading="lazy"
                         onError={(e) => {
-                          // Hide image if it fails to load
+                          // Replace with placeholder if image fails to load
                           e.currentTarget.style.display = 'none'
+                          const parent = e.currentTarget.parentElement
+                          if (parent) {
+                            parent.innerHTML = `
+                              <div class="w-full h-full flex flex-col items-center justify-center">
+                                <svg class="h-16 w-16 text-blue-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                                </svg>
+                                <span class="text-sm text-blue-400 font-medium">Care Home</span>
+                              </div>
+                            `
+                          }
                         }}
                       />
-                    </div>
-                  )}
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center">
+                        <Home className="h-16 w-16 text-blue-300 mb-2" />
+                        <span className="text-sm text-blue-400 font-medium">Care Home</span>
+                      </div>
+                    )}
+                  </div>
                   <CardHeader>
                     <div className="flex justify-between items-start gap-4">
-                      {/* Circular Thumbnail for when no banner image */}
-                      {!home.image_url && home.image_url && (
-                        <div className="flex-shrink-0">
-                          <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-gray-200 bg-gray-100">
-                            <img
-                              src={home.image_url}
-                              alt={home.name}
-                              className="w-full h-full object-cover object-center"
-                              loading="lazy"
-                            />
-                          </div>
-                        </div>
-                      )}
                       <div className="flex-1">
                         <CardTitle className="flex items-center gap-2">
                           <Home className="h-5 w-5 text-blue-600" />

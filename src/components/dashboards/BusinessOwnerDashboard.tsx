@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Users, Home, Building, UserPlus, Plus, Loader2, FileText, ClipboardList, AlertTriangle, CheckCircle, Clock } from 'lucide-react'
+import { Users, Home, Building, UserPlus, Plus, Loader2, FileText, ClipboardList, AlertTriangle, CheckCircle, Clock, Settings, User } from 'lucide-react'
 import Link from 'next/link'
 
 interface DashboardStats {
@@ -145,8 +145,8 @@ export default function BusinessOwnerDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Business Overview</h2>
-        <p className="text-gray-600">Your care business at a glance</p>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Business Overview</h2>
+        <p className="text-gray-600 dark:text-gray-400">Your care business at a glance</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -421,6 +421,18 @@ export default function BusinessOwnerDashboard() {
         </CardHeader>
         <CardContent className="flex flex-wrap gap-4">
           <Button asChild>
+            <Link href="/profile">
+              <User className="h-4 w-4 mr-2" />
+              Profile
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/settings/company">
+              <Settings className="h-4 w-4 mr-2" />
+              Company Settings
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
             <Link href="/care-homes/new">
               <Plus className="h-4 w-4 mr-2" />
               Add Care Home

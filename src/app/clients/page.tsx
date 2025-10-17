@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
-import { Users, Plus, Search, Home, Calendar, User } from 'lucide-react'
+import { Users, Plus, Search, Home, Calendar, User, AlertCircle, Heart, Pill, Activity } from 'lucide-react'
 import Link from 'next/link'
 
 interface Client {
@@ -24,6 +24,11 @@ interface Client {
   admission_date: string | null
   is_active: boolean
   care_home_id: string
+  profile_image_url: string | null
+  medical_conditions: string | null
+  allergies: string | null
+  medications: string | null
+  mobility_notes: string | null
   care_homes: {
     id: string
     name: string
@@ -61,8 +66,33 @@ export default function ClientsPage() {
     try {
       setLoading(true)
       
+      // Get manager's assigned care homes if applicable
+      let assignedHomeIds: string[] = []
+      if (profile?.role === 'manager') {
+        const { data: assignments, error: assignError } = await supabase
+          .from('manager_care_homes')
+          .select('care_home_id')
+          .eq('manager_id', profile.id)
+
+        if (assignError) {
+          console.error('Error fetching manager assignments:', assignError)
+          setError('Failed to load care home assignments')
+          return
+        }
+
+        assignedHomeIds = assignments.map(a => a.care_home_id)
+        
+        if (assignedHomeIds.length === 0) {
+          // Manager has no assigned homes, show empty state
+          setClients([])
+          setCareHomes([])
+          setLoading(false)
+          return
+        }
+      }
+      
       // Fetch clients with care home info
-      const { data: clientsData, error: clientsError } = await supabase
+      let clientsQuery = supabase
         .from('clients')
         .select(`
           *,
@@ -73,6 +103,13 @@ export default function ClientsPage() {
         `)
         .order('last_name', { ascending: true })
 
+      // Filter by manager's assigned homes
+      if (profile?.role === 'manager' && assignedHomeIds.length > 0) {
+        clientsQuery = clientsQuery.in('care_home_id', assignedHomeIds)
+      }
+
+      const { data: clientsData, error: clientsError } = await clientsQuery
+
       if (clientsError) {
         console.error('Error fetching clients:', clientsError)
         setError('Failed to load clients')
@@ -80,11 +117,18 @@ export default function ClientsPage() {
       }
 
       // Fetch care homes for filter
-      const { data: homesData, error: homesError } = await supabase
+      let homesQuery = supabase
         .from('care_homes')
         .select('id, name')
         .eq('is_active', true)
         .order('name', { ascending: true })
+
+      // Filter care homes list by manager's assignments
+      if (profile?.role === 'manager' && assignedHomeIds.length > 0) {
+        homesQuery = homesQuery.in('id', assignedHomeIds)
+      }
+
+      const { data: homesData, error: homesError } = await homesQuery
 
       if (homesError) {
         console.error('Error fetching care homes:', homesError)
@@ -322,69 +366,141 @@ export default function ClientsPage() {
           {!loading && !error && filteredClients.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredClients.map((client) => (
-                <Card key={client.id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <CardTitle className="flex items-center gap-2">
-                          <User className="h-5 w-5 text-blue-600" />
-                          {client.first_name} {client.last_name}
-                        </CardTitle>
-                        <CardDescription className="mt-2 space-y-1">
-                          <div className="flex gap-2">
-                            <Badge variant={client.is_active ? "default" : "outline"}>
-                              {client.is_active ? 'Active' : 'Inactive'}
-                            </Badge>
-                            <Badge variant="outline" className="text-gray-600">
-                              {calculateAge(client.date_of_birth)} years
-                            </Badge>
-                          </div>
-                        </CardDescription>
+                <Card key={client.id} className="hover:shadow-lg transition-shadow overflow-hidden">
+                  {/* Profile Header Section */}
+                  <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-6 pb-12">
+                    <div className="flex flex-col items-center">
+                      {/* Round Profile Image */}
+                      <div className="relative w-24 h-24 mb-3">
+                        <div className="w-full h-full rounded-full overflow-hidden border-4 border-white shadow-lg bg-white">
+                          {client.profile_image_url ? (
+                            <img
+                              src={client.profile_image_url}
+                              alt={`${client.first_name} ${client.last_name}`}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                // Replace with placeholder if image fails to load
+                                e.currentTarget.style.display = 'none'
+                                const parent = e.currentTarget.parentElement
+                                if (parent) {
+                                  parent.innerHTML = `
+                                    <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-400 to-indigo-500">
+                                      <svg class="h-12 w-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                      </svg>
+                                    </div>
+                                  `
+                                }
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-400 to-indigo-500">
+                              <User className="h-12 w-12 text-white" />
+                            </div>
+                          )}
+                        </div>
+                        {/* Active Status Indicator */}
+                        <div className={`absolute bottom-0 right-0 w-6 h-6 rounded-full border-4 border-white ${client.is_active ? 'bg-green-500' : 'bg-gray-400'}`} />
                       </div>
+                      
+                      {/* Client Name & Age */}
+                      <h3 className="text-lg font-bold text-gray-900 text-center">
+                        {client.first_name} {client.last_name}
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        {calculateAge(client.date_of_birth)} years • {client.gender}
+                      </p>
                     </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {/* Care Home */}
-                    {client.care_homes && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Home className="h-4 w-4 text-gray-400" />
-                        <span className="text-gray-700">{client.care_homes.name}</span>
+                  </div>
+
+                  <CardContent className="space-y-4 -mt-6">
+                    {/* Care Home & Room */}
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+                      {client.care_homes && (
+                        <div className="flex items-center gap-2 text-sm mb-2">
+                          <Home className="h-4 w-4 text-blue-500" />
+                          <span className="font-medium text-gray-900">{client.care_homes.name}</span>
+                        </div>
+                      )}
+                      {client.room_number && (
+                        <div className="text-sm text-gray-600">
+                          Room {client.room_number}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Medical Alerts Section - Only show if there are alerts */}
+                    {(client.medical_conditions || client.allergies || client.medications || client.mobility_notes) && (
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Care Alerts</h4>
+                        
+                        {/* Medical Conditions */}
+                        {client.medical_conditions && (
+                          <div className="flex gap-2 items-start bg-red-50 border border-red-200 rounded-lg p-2">
+                            <Heart className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-medium text-red-900">Medical Conditions</div>
+                              <div className="text-xs text-red-700 line-clamp-2">{client.medical_conditions}</div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Allergies */}
+                        {client.allergies && (
+                          <div className="flex gap-2 items-start bg-orange-50 border border-orange-200 rounded-lg p-2">
+                            <AlertCircle className="h-4 w-4 text-orange-500 flex-shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-medium text-orange-900">Allergies</div>
+                              <div className="text-xs text-orange-700 line-clamp-2">{client.allergies}</div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Medications */}
+                        {client.medications && (
+                          <div className="flex gap-2 items-start bg-blue-50 border border-blue-200 rounded-lg p-2">
+                            <Pill className="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-medium text-blue-900">Medications</div>
+                              <div className="text-xs text-blue-700 line-clamp-2">{client.medications}</div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Mobility Notes */}
+                        {client.mobility_notes && (
+                          <div className="flex gap-2 items-start bg-purple-50 border border-purple-200 rounded-lg p-2">
+                            <Activity className="h-4 w-4 text-purple-500 flex-shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-medium text-purple-900">Mobility</div>
+                              <div className="text-xs text-purple-700 line-clamp-2">{client.mobility_notes}</div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 
-                    {/* Room Number */}
-                    {client.room_number && (
-                      <div className="text-sm">
-                        <span className="text-gray-600">Room: </span>
-                        <span className="font-medium text-gray-900">{client.room_number}</span>
-                      </div>
-                    )}
-
-                    {/* NHS Number */}
-                    {client.nhs_number && (
-                      <div className="text-sm">
-                        <span className="text-gray-600">NHS: </span>
-                        <span className="font-mono text-gray-900">{client.nhs_number}</span>
-                      </div>
-                    )}
-
-                    {/* Admission Date */}
-                    {client.admission_date && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Calendar className="h-4 w-4 text-gray-400" />
-                        <span className="text-gray-600">Admitted: </span>
-                        <span className="text-gray-700">{formatDate(client.admission_date)}</span>
-                      </div>
-                    )}
+                    {/* Additional Info */}
+                    <div className="space-y-1 text-xs text-gray-600">
+                      {client.nhs_number && (
+                        <div>
+                          <span className="font-medium">NHS:</span> {client.nhs_number}
+                        </div>
+                      )}
+                      {client.admission_date && (
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          <span>Admitted {formatDate(client.admission_date)}</span>
+                        </div>
+                      )}
+                    </div>
 
                     {/* Actions */}
-                    <div className="pt-3 border-t">
-                      <Button asChild variant="outline" size="sm" className="w-full">
-                        <Link href={`/clients/${client.id}`}>
-                          View Profile
-                        </Link>
-                      </Button>
-                    </div>
+                    <Button asChild variant="default" size="sm" className="w-full bg-gradient-primary hover:opacity-90">
+                      <Link href={`/clients/${client.id}`}>
+                        View Full Profile
+                      </Link>
+                    </Button>
                   </CardContent>
                 </Card>
               ))}
