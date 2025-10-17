@@ -131,7 +131,7 @@ export default function CareHomeDetailPage() {
       setClients(clientsData || [])
       
       // Extract staff from nested structure
-      const extractedStaff = (staffData?.map(item => item.profiles).filter(Boolean) || []) as any
+      const extractedStaff = (staffData?.map(item => item.profiles).filter(Boolean) || []) as Staff[]
       setStaff(extractedStaff)
       
     } catch (err) {
