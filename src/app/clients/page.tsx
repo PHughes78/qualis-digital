@@ -42,7 +42,8 @@ interface Client {
   admission_date: string | null
   is_active: boolean
   care_home_id: string
-  profile_image_url: string | null
+  photo_url: string | null
+  profile_image_url?: string | null
   medical_conditions: string | null
   allergies: string | null
   medications: string | null
@@ -144,6 +145,23 @@ export default function ClientsPage() {
         return
       }
 
+      const clientsWithPhotos: Client[] = await Promise.all(
+        (clientsData ?? []).map(async (clientRow) => {
+          let profileImageUrl: string | null = null
+          if (clientRow.photo_url) {
+            const { data: signed } = await supabase.storage
+              .from('client-pictures')
+              .createSignedUrl(clientRow.photo_url, 60 * 30)
+            profileImageUrl = signed?.signedUrl ?? null
+          }
+
+          return {
+            ...clientRow,
+            profile_image_url: profileImageUrl,
+          }
+        })
+      )
+
       // Fetch care homes for filter
       let homesQuery = supabase
         .from('care_homes')
@@ -162,7 +180,7 @@ export default function ClientsPage() {
         console.error('Error fetching care homes:', homesError)
       }
 
-      setClients(clientsData || [])
+      setClients(clientsWithPhotos)
       setCareHomes(homesData || [])
     } catch (err) {
       console.error('Exception fetching data:', err)
@@ -511,10 +529,12 @@ export default function ClientsPage() {
                 const isChild = client.client_type === 'child'
 
                 return (
-                  <Card
+                  <Link
                     key={client.id}
-                    className="relative overflow-hidden rounded-3xl border border-white/60 bg-white/80 shadow-sm transition-all hover:-translate-y-1 hover:shadow-argon"
+                    href={`/clients/${client.id}`}
+                    className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                   >
+                    <Card className="relative overflow-hidden rounded-3xl border border-white/60 bg-white/80 shadow-sm transition-all group-hover:-translate-y-1 group-hover:shadow-argon">
                     <div className={`bg-gradient-to-br ${theme.gradient} p-6 pb-12`}>
                       <div className="flex flex-col items-center text-center">
                         <div
@@ -628,17 +648,12 @@ export default function ClientsPage() {
                           <p className="mt-1 text-gray-700">{client.is_active ? 'Active' : 'Inactive'}</p>
                         </div>
                       </div>
-
-                      <Button
-                        asChild
-                        variant="default"
-                        size="sm"
-                        className="w-full rounded-full bg-gradient-primary font-medium shadow-soft hover:opacity-90"
-                      >
-                        <Link href={`/clients/${client.id}`}>View full profile</Link>
-                      </Button>
+                      <div className="text-center text-sm font-semibold text-blue-600 transition group-hover:text-blue-700">
+                        View profile
+                      </div>
                     </CardContent>
-                  </Card>
+                    </Card>
+                  </Link>
                 )
               })}
             </div>

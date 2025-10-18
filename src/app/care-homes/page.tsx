@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Home, Plus, Users, Bed, MapPin, Phone, Mail } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 interface CareHome {
   id: string
@@ -29,6 +30,7 @@ interface CareHome {
 
 export default function CareHomesPage() {
   const { profile } = useAuth()
+  const router = useRouter()
   const [careHomes, setCareHomes] = useState<CareHome[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -228,7 +230,19 @@ export default function CareHomesPage() {
           {!loading && !error && careHomes.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {careHomes.map((home) => (
-                <Card key={home.id} className="hover:shadow-lg transition-shadow overflow-hidden">
+                <Card
+                  key={home.id}
+                  role="link"
+                  tabIndex={0}
+                  onClick={() => router.push(`/care-homes/${home.id}`)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      router.push(`/care-homes/${home.id}`)
+                    }
+                  }}
+                  className="cursor-pointer overflow-hidden transition-shadow hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                >
                   {/* Care Home Image - Always shown with placeholder if no image */}
                   <div className="relative h-56 w-full bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 overflow-hidden">
                     {home.image_url ? (
@@ -324,17 +338,20 @@ export default function CareHomesPage() {
                     </div>
 
                     {/* Actions */}
-                    <div className="pt-3 flex gap-2">
-                      <Button asChild variant="outline" size="sm" className="flex-1">
-                        <Link href={`/care-homes/${home.id}`}>
-                          View Details
-                        </Link>
-                      </Button>
+                    <div className="pt-3 flex items-center justify-between gap-2">
+                      <span className="text-sm font-semibold text-blue-600">
+                        View home details
+                      </span>
                       {profile?.role === 'business_owner' && (
-                        <Button asChild variant="outline" size="sm" className="flex-1">
-                          <Link href={`/care-homes/${home.id}/edit`}>
-                            Edit
-                          </Link>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            router.push(`/care-homes/${home.id}/edit`)
+                          }}
+                        >
+                          Edit
                         </Button>
                       )}
                     </div>

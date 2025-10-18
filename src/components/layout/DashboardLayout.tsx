@@ -23,7 +23,6 @@ import {
   LogOut,
   Menu,
   Bell,
-  Search,
   UserCog,
   User,
   Sparkles,
@@ -36,6 +35,7 @@ import {
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import Image from 'next/image'
+import GlobalSearch from './GlobalSearch'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -228,14 +228,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-                <div className="flex items-center gap-2 rounded-2xl border border-white/40 bg-white/40 px-4 py-2 text-sm text-muted-foreground shadow-soft transition-smooth focus-within:ring-2 focus-within:ring-primary/40 dark:bg-white/10 sm:max-w-[220px]">
-                  <Search className="size-4 flex-shrink-0" />
-                  <input
-                    type="search"
-                    placeholder="Search dashboard"
-                    className="w-full border-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
-                  />
-                </div>
+                <GlobalSearch />
 
                 <div className="flex items-center gap-2">
                   <Button

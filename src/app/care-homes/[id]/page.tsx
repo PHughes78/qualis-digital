@@ -6,10 +6,12 @@ import { createClient } from '@/lib/supabase/client'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import DocumentsManager from '@/components/documents/DocumentsManager'
+import DocumentsOverlay from '@/components/documents/DocumentsOverlay'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { 
+import {
   ArrowLeft, 
   Home, 
   Edit,
@@ -21,7 +23,8 @@ import {
   User,
   Calendar,
   Building,
-  Activity
+  Activity,
+  FileText
 } from 'lucide-react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
@@ -72,6 +75,7 @@ export default function CareHomeDetailPage() {
   const [staff, setStaff] = useState<Staff[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [documentsOverlayOpen, setDocumentsOverlayOpen] = useState(false)
   const supabase = createClient()
 
   useEffect(() => {
@@ -247,12 +251,16 @@ export default function CareHomeDetailPage() {
       <DashboardLayout>
         <div className="space-y-6">
           {/* Header */}
-          <div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <Button asChild variant="ghost" className="mb-4">
               <Link href="/care-homes">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Care Homes
               </Link>
+            </Button>
+            <Button variant="outline" className="mb-4" onClick={() => setDocumentsOverlayOpen(true)}>
+              <FileText className="mr-2 h-4 w-4" />
+              Documents
             </Button>
           </div>
 
@@ -396,6 +404,7 @@ export default function CareHomeDetailPage() {
               <TabsTrigger value="details">Details</TabsTrigger>
               <TabsTrigger value="clients">Clients ({clients.length})</TabsTrigger>
               <TabsTrigger value="staff">Staff ({staff.length})</TabsTrigger>
+              <TabsTrigger value="documents">Documents</TabsTrigger>
             </TabsList>
 
             {/* Details Tab */}
@@ -600,9 +609,21 @@ export default function CareHomeDetailPage() {
                 </div>
               )}
             </TabsContent>
+
+            {/* Documents Tab */}
+            <TabsContent value="documents" className="space-y-6">
+              <DocumentsManager entityType="care-homes" entityId={careHome.id} />
+            </TabsContent>
           </Tabs>
         </div>
       </DashboardLayout>
+      <DocumentsOverlay
+        open={documentsOverlayOpen}
+        onClose={() => setDocumentsOverlayOpen(false)}
+        entityType="care-homes"
+        entityId={careHome.id}
+        title={careHome.name}
+      />
     </ProtectedRoute>
   )
 }

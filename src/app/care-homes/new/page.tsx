@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Alert } from '@/components/ui/alert'
+import AddressAutocompleteInput from '@/components/address/AddressAutocompleteInput'
 import { ArrowLeft, Home, Loader2, Upload, X, Image as ImageIcon } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -377,13 +378,18 @@ export default function NewCareHomePage() {
                   
                   <div className="space-y-2">
                     <Label htmlFor="address">Street Address *</Label>
-                    <Input
+                    <AddressAutocompleteInput
                       id="address"
                       value={formData.address}
-                      onChange={(e) => handleChange('address', e.target.value)}
+                      onChange={(val) => handleChange('address', val)}
+                      onSuggestionSelect={(suggestion) => {
+                        if (suggestion.city) handleChange('city', suggestion.city)
+                        if (suggestion.postcode) handleChange('postcode', suggestion.postcode)
+                      }}
                       placeholder="e.g., 123 High Street"
                       disabled={loading}
                       required
+                      error={error === 'Address is required' ? error : null}
                     />
                   </div>
 

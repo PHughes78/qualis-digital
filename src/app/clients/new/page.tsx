@@ -17,6 +17,7 @@ import { ArrowLeft, UserPlus, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { ClientType } from '@/lib/database.types'
+import AddressAutocompleteInput from '@/components/address/AddressAutocompleteInput'
 
 interface CareHome {
   id: string
@@ -489,10 +490,13 @@ export default function NewClientPage() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="address">Street Address</Label>
-                  <Input
+                  <AddressAutocompleteInput
                     id="address"
                     value={formData.address}
-                    onChange={(e) => handleChange('address', e.target.value)}
+                    onChange={(val) => handleChange('address', val)}
+                    onSuggestionSelect={(suggestion) => {
+                      if (suggestion.postcode) handleChange('postcode', suggestion.postcode)
+                    }}
                     placeholder="123 High Street"
                     disabled={loading}
                   />

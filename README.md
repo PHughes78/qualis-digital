@@ -48,6 +48,8 @@ npm install
      - `NEXT_PUBLIC_SUPABASE_URL`
      - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
      - `SUPABASE_SERVICE_ROLE_KEY`
+     - `SUPABASE_DOCS_BUCKET` (storage bucket for care documents, defaults to `documents`)
+     - `MAPBOX_ACCESS_TOKEN` (Places API token used for UK address autocomplete)
 
 4. Set up Supabase database:
    - Create a new project at [Supabase](https://supabase.com)
@@ -55,6 +57,10 @@ npm install
      - `001_initial_schema.sql`
      - `002_row_level_security.sql`
      - `003_functions_and_triggers.sql`
+   - Create Supabase Storage buckets and keep them private:
+     - `documents` for shared records and attachments
+     - `client-pictures` for resident profile photos
+   - Configure a Mapbox account and generate a Places API token for address autocomplete.
 
 5. Start the development server:
 ```bash

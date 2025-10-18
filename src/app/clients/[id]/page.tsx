@@ -1,11 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase/client'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import DocumentsManager from '@/components/documents/DocumentsManager'
+import DocumentsOverlay from '@/components/documents/DocumentsOverlay'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -25,6 +27,8 @@ import {
   MessageCircle,
   Baby,
   Activity,
+  Camera,
+  Loader2,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import Link from 'next/link'
@@ -35,6 +39,7 @@ interface Client {
   id: string
   first_name: string
   last_name: string
+  photo_url: string | null
   date_of_birth: string
   gender: string
   client_type: ClientType
@@ -81,6 +86,10 @@ export default function ClientDetailPage() {
   const [client, setClient] = useState<Client | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [documentsOverlayOpen, setDocumentsOverlayOpen] = useState(false)
   const supabase = createClient()
 
   useEffect(() => {
@@ -114,11 +123,82 @@ export default function ClientDetailPage() {
       }
 
       setClient(data)
+      await loadPhoto(data.photo_url ?? null)
     } catch (err) {
       console.error('Exception fetching client:', err)
       setError('An error occurred while loading client')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadPhoto = async (path: string | null) => {
+    if (!path) {
+      setPhotoUrl(null)
+      return
+    }
+
+    const { data, error } = await supabase.storage.from('client-pictures').createSignedUrl(path, 60 * 60)
+
+    if (error || !data) {
+      console.error('Failed to load client photo', error)
+      setPhotoUrl(null)
+      return
+    }
+
+    setPhotoUrl(data.signedUrl)
+  }
+
+  const handleAvatarClick = () => {
+    if (uploadingPhoto) return
+    fileInputRef.current?.click()
+  }
+
+  const handlePhotoSelected = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file || !client) return
+
+    setUploadingPhoto(true)
+    try {
+      const fileExt = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+      const uniqueId = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `${Date.now()}`
+      const filePath = `${client.id}/${uniqueId}.${fileExt}`
+
+      if (client.photo_url) {
+        await supabase.storage.from('client-pictures').remove([client.photo_url]).catch(() => undefined)
+      }
+
+      const { error: uploadError } = await supabase.storage
+        .from('client-pictures')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true,
+        })
+
+      if (uploadError) {
+        console.error('Failed to upload client photo', uploadError)
+        setError('Unable to upload photo. Please try again.')
+        return
+      }
+
+      const { error: updateError } = await supabase
+        .from('clients')
+        .update({ photo_url: filePath })
+        .eq('id', client.id)
+
+      if (updateError) {
+        console.error('Failed to save client photo path', updateError)
+        setError('Unable to save photo.')
+        return
+      }
+
+      await loadPhoto(filePath)
+      setClient((previous) => (previous ? { ...previous, photo_url: filePath } : previous))
+    } finally {
+      setUploadingPhoto(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
     }
   }
 
@@ -269,20 +349,52 @@ export default function ClientDetailPage() {
     <ProtectedRoute allowedRoles={['business_owner', 'manager', 'carer']}>
       <DashboardLayout>
         <div className="space-y-6">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handlePhotoSelected}
+          />
           <div className="space-y-4">
-            <Button asChild variant="ghost" className="w-fit">
-              <Link href="/clients">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Clients
-              </Link>
-            </Button>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Button asChild variant="ghost" className="w-fit">
+                <Link href="/clients">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Clients
+                </Link>
+              </Button>
+              <Button variant="outline" onClick={() => setDocumentsOverlayOpen(true)}>
+                <FileText className="mr-2 h-4 w-4" />
+                Documents
+              </Button>
+            </div>
 
             <Card className={`overflow-hidden rounded-3xl border border-white/60 bg-gradient-to-br ${theme.gradient} shadow-soft`}>
               <CardContent className="flex flex-col gap-6 p-6 md:flex-row md:items-center md:justify-between">
                 <div className="flex flex-1 items-center gap-4">
-                  <div className={`flex h-16 w-16 items-center justify-center rounded-2xl ${theme.iconBackground}`}>
-                    {isChild ? <Baby className="h-8 w-8" /> : <User className="h-8 w-8" />}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAvatarClick}
+                    disabled={uploadingPhoto}
+                    className={`relative flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-white/70 bg-white/80 shadow-md transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                    title="Update profile photo"
+                  >
+                    {photoUrl ? (
+                      <img
+                        src={photoUrl}
+                        alt={`${client.first_name} ${client.last_name}`}
+                        className="h-full w-full rounded-2xl object-cover"
+                      />
+                    ) : (
+                      <div className={`flex h-full w-full items-center justify-center rounded-2xl ${theme.iconBackground}`}>
+                        {isChild ? <Baby className="h-8 w-8" /> : <User className="h-8 w-8" />}
+                      </div>
+                    )}
+                    <span className="absolute -bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white shadow">
+                      {uploadingPhoto ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                    </span>
+                  </button>
                   <div className="space-y-2">
                     <h1 className="text-3xl font-bold text-gray-900">
                       {client.first_name} {client.last_name}
@@ -353,6 +465,7 @@ export default function ClientDetailPage() {
               <TabsTrigger value="health">Health Information</TabsTrigger>
               <TabsTrigger value="contacts">Contacts</TabsTrigger>
               <TabsTrigger value="care">Care Details</TabsTrigger>
+              <TabsTrigger value="documents">Documents</TabsTrigger>
             </TabsList>
 
             {/* Overview Tab */}
@@ -644,9 +757,21 @@ export default function ClientDetailPage() {
                 </Card>
               </div>
             </TabsContent>
+
+            {/* Documents Tab */}
+            <TabsContent value="documents" className="space-y-6">
+              <DocumentsManager entityType="clients" entityId={client.id} />
+            </TabsContent>
           </Tabs>
         </div>
       </DashboardLayout>
+      <DocumentsOverlay
+        open={documentsOverlayOpen}
+        onClose={() => setDocumentsOverlayOpen(false)}
+        entityType="clients"
+        entityId={client.id}
+        title={`${client.first_name} ${client.last_name}`}
+      />
     </ProtectedRoute>
   )
 }
