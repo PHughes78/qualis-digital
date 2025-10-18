@@ -201,23 +201,23 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Content area */}
         <div className="flex flex-1 flex-col gap-6">
           <header className="rounded-3xl border border-white/30 bg-card/90 p-6 shadow-argon supports-[backdrop-filter]:backdrop-blur-2xl lg:p-8">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-              <div className="flex items-start gap-3">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex items-start gap-3 flex-1 min-w-0">
                 <Button
                   variant="outline"
                   size="icon"
-                  className="mr-1 rounded-2xl border-white/40 bg-white/40 shadow-soft hover:bg-white/60 dark:bg-white/10 lg:hidden"
+                  className="mr-1 flex-shrink-0 rounded-2xl border-white/40 bg-white/40 shadow-soft hover:bg-white/60 dark:bg-white/10 lg:hidden"
                   onClick={() => setMobileNavOpen(true)}
                 >
                   <Menu className="size-5" />
                   <span className="sr-only">Open navigation</span>
                 </Button>
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-3 min-w-0">
                   <Badge variant="outline" className="w-fit border-white/40 bg-white/40 text-xs uppercase tracking-[0.3em]">
                     Dashboard
                   </Badge>
                   <div>
-                    <h1 className="text-3xl font-semibold text-foreground sm:text-4xl">
+                    <h1 className="text-3xl font-semibold text-foreground sm:text-4xl truncate">
                       {profile ? `Welcome back, ${profile.first_name}` : 'Welcome back'}
                     </h1>
                     <p className="mt-2 text-sm text-muted-foreground">
@@ -227,9 +227,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 </div>
               </div>
 
-              <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-                <div className="flex items-center gap-2 rounded-2xl border border-white/40 bg-white/40 px-4 py-2 text-sm text-muted-foreground shadow-soft transition-smooth focus-within:ring-2 focus-within:ring-primary/40 dark:bg-white/10 sm:min-w-[220px]">
-                  <Search className="size-4" />
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+                <div className="flex items-center gap-2 rounded-2xl border border-white/40 bg-white/40 px-4 py-2 text-sm text-muted-foreground shadow-soft transition-smooth focus-within:ring-2 focus-within:ring-primary/40 dark:bg-white/10 sm:max-w-[220px]">
+                  <Search className="size-4 flex-shrink-0" />
                   <input
                     type="search"
                     placeholder="Search dashboard"
@@ -244,14 +244,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     size="icon-sm"
                     className="relative rounded-2xl border border-white/30"
                   >
-                    <Link href="/notifications" className="flex size-full items-center justify-center rounded-2xl">
+                    <Link href="/notifications" className="flex items-center justify-center rounded-2xl">
                       <Bell className="size-4" />
                       <span className="absolute right-1 top-1 block size-2 rounded-full bg-destructive" />
                     </Link>
                   </Button>
 
                   {profile && (
-                    <Badge className={`${getRoleBadgeClass(profile.role)} hidden sm:inline-flex`}>
+                    <Badge className={`${getRoleBadgeClass(profile.role)} hidden md:inline-flex whitespace-nowrap`}>
                       {getRoleDisplay(profile.role)}
                     </Badge>
                   )}

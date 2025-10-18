@@ -10,6 +10,7 @@ Supabase Edge Function that drains the `notification_queue` table, sends any que
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role key with permissions to read/update `notification_queue` and `profiles`. |
 | `RESEND_API_KEY` | API key for [Resend](https://resend.com/) to deliver emails. |
 | `NOTIFICATION_EMAIL_FROM` | Optional. Friendly sender, e.g. `Qualis Digital <notifications@qualis.digital>`. Defaults to `Qualis Digital <no-reply@qualis.digital>`. |
+| `NOTIFICATION_APP_BASE_URL` | Base HTTPS URL for building links in notification emails, e.g. `https://app.qualisdigital.com`. |
 
 ### Setting secrets (examples)
 
@@ -17,6 +18,7 @@ Supabase Edge Function that drains the `notification_queue` table, sends any que
 # Set once per Supabase project (replace values in angle brackets)
 supabase secrets set \
   RESEND_API_KEY=<your-resend-api-key> \
+  NOTIFICATION_APP_BASE_URL="https://app.qualisdigital.com" \
   NOTIFICATION_EMAIL_FROM="Qualis Digital <notifications@qualis.digital>" \
   --project-ref your-project-ref
 ```
@@ -28,6 +30,7 @@ SUPABASE_URL=...
 SUPABASE_SERVICE_ROLE_KEY=...
 RESEND_API_KEY=<your-resend-api-key>
 NOTIFICATION_EMAIL_FROM="Qualis Digital <notifications@qualis.digital>"
+NOTIFICATION_APP_BASE_URL="https://app.qualisdigital.com"
 ```
 
 > **Never commit secrets**. Keep keys in environment variables or Supabase secrets only.

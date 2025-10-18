@@ -12,6 +12,7 @@ import { AlertCircle, ArrowLeft, ArrowRight, Bell, CheckCircle2, RefreshCw, Sear
 import { useAuth } from "@/contexts/AuthContext"
 import { useNotifications, NotificationStatusFilter, NotificationChannelFilter } from "@/hooks/use-notifications"
 import type { Database, NotificationChannel, NotificationStatus } from "@/lib/database.types"
+import Link from "next/link"
 
 type NotificationRow = Database["public"]["Tables"]["notification_queue"]["Row"]
 
@@ -65,6 +66,26 @@ function formatDateTime(value: string | null | undefined) {
   }
 }
 
+function resolveNotificationLink(payload?: Record<string, unknown>) {
+  if (!payload) return { href: null, external: false }
+  const linkValue = typeof payload.link === "string" ? payload.link : undefined
+  const urlValue = typeof payload.url === "string" ? payload.url : undefined
+
+  if (linkValue && linkValue.startsWith("/")) {
+    return { href: linkValue, external: false }
+  }
+
+  if (urlValue) {
+    return { href: urlValue, external: urlValue.startsWith("http") && !urlValue.startsWith("/") }
+  }
+
+  if (linkValue) {
+    return { href: linkValue, external: linkValue.startsWith("http") }
+  }
+
+  return { href: null, external: false }
+}
+
 function NotificationListItem({
   item,
   isActive,
@@ -86,6 +107,7 @@ function NotificationListItem({
   const channelStyle = CHANNEL_BADGE_STYLES[item.channel] ?? "bg-muted text-muted-foreground"
   const statusKey = (item.status ?? "queued") as NotificationStatus
   const statusStyle = STATUS_BADGE_STYLES[statusKey] ?? STATUS_BADGE_STYLES.active
+  const { href, external } = resolveNotificationLink(payload)
 
   return (
     <button
@@ -112,6 +134,17 @@ function NotificationListItem({
           <Badge variant="outline" className={channelStyle}>
             {item.channel.replace("_", " ")}
           </Badge>
+          {href ? (
+            <Button variant="link" size="sm" className="h-auto p-0 text-xs font-semibold" asChild>
+              {external ? (
+                <a href={href} target="_blank" rel="noopener noreferrer">
+                  View
+                </a>
+              ) : (
+                <Link href={href}>View</Link>
+              )}
+            </Button>
+          ) : null}
         </div>
       </div>
     </button>
@@ -137,10 +170,11 @@ function NotificationDetail({
       ? (item.payload as Record<string, unknown>)
       : undefined
 
-  const payloadEntries = payload ? Object.entries(payload) : []
+  const { details, extraEntries } = buildStructuredDetails(payload)
 
   const statusKey = (item.status ?? "queued") as NotificationStatus
   const statusStyle = STATUS_BADGE_STYLES[statusKey] ?? STATUS_BADGE_STYLES.active
+  const { href, external } = resolveNotificationLink(payload)
 
   return (
     <div className="space-y-4">
@@ -170,15 +204,40 @@ function NotificationDetail({
             {item.sent_at && <li>Sent at {formatDateTime(item.sent_at)}</li>}
             {item.error_message && <li className="text-destructive">Error: {item.error_message}</li>}
           </ul>
+          {href ? (
+            <Button asChild size="sm" className="mt-3">
+              {external ? (
+                <a href={href} target="_blank" rel="noopener noreferrer">
+                  Open related record
+                </a>
+              ) : (
+                <Link href={href}>Open related record</Link>
+              )}
+            </Button>
+          ) : null}
         </div>
 
         <div className="rounded-xl border border-border/60 bg-muted/30 p-4">
-          <p className="text-sm font-medium text-foreground">Payload</p>
-          {payloadEntries.length === 0 ? (
-            <p className="mt-2 text-sm text-muted-foreground">No additional payload values.</p>
+          <p className="text-sm font-medium text-foreground">Details</p>
+          {details.length === 0 ? (
+            <p className="mt-2 text-sm text-muted-foreground">No additional details supplied.</p>
           ) : (
             <div className="mt-2 space-y-2 text-sm">
-              {payloadEntries.map(([key, value]) => (
+              {details.map(({ label, value }) => (
+                <div key={label} className="flex flex-col rounded-lg border border-border/40 bg-card/60 p-2">
+                  <span className="text-xs uppercase tracking-wide text-muted-foreground">{label}</span>
+                  <span className="font-medium text-foreground">{value}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {extraEntries.length > 0 ? (
+          <div className="rounded-xl border border-border/60 bg-muted/30 p-4">
+            <p className="text-sm font-medium text-foreground">Payload</p>
+            <div className="mt-2 space-y-2 text-sm">
+              {extraEntries.map(([key, value]) => (
                 <div key={key} className="flex flex-col rounded-lg border border-border/40 bg-card/60 p-2">
                   <span className="text-xs uppercase tracking-wide text-muted-foreground">{key}</span>
                   <span className="font-medium text-foreground">
@@ -187,11 +246,85 @@ function NotificationDetail({
                 </div>
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        ) : null}
       </div>
     </div>
   )
+}
+
+function buildStructuredDetails(
+  payload?: Record<string, unknown>
+): { details: { label: string; value: string }[]; extraEntries: [string, unknown][] } {
+  if (!payload) return { details: [], extraEntries: [] }
+
+  const usedKeys = new Set<string>()
+  const details: { label: string; value: string }[] = []
+
+  const entityType = typeof payload.entityType === "string" ? payload.entityType : undefined
+
+  const addDetail = (label: string, value?: string | null) => {
+    if (!value) return
+    details.push({ label, value })
+  }
+
+  const formatDate = (value?: unknown) => {
+    if (typeof value !== "string") return undefined
+    return formatDateTime(value)
+  }
+
+  if (entityType === "incident") {
+    usedKeys.add("entityType")
+    addDetail("Incident type", payload.incidentType as string | undefined)
+    usedKeys.add("incidentType")
+    addDetail("Severity", payload.severity as string | undefined)
+    usedKeys.add("severity")
+    addDetail("Resident", payload.clientName as string | undefined)
+    usedKeys.add("clientName")
+    addDetail("Care home", payload.careHomeName as string | undefined)
+    usedKeys.add("careHomeName")
+    addDetail("Incident date", formatDate(payload.incidentDate))
+    usedKeys.add("incidentDate")
+    addDetail("Reported by", payload.reporterName as string | undefined)
+    usedKeys.add("reporterName")
+    addDetail("Summary", payload.message as string | undefined)
+    usedKeys.add("message")
+  } else if (entityType === "care_plan") {
+    usedKeys.add("entityType")
+    addDetail("Care plan title", payload.title as string | undefined)
+    usedKeys.add("title")
+    addDetail("Resident", payload.clientName as string | undefined)
+    usedKeys.add("clientName")
+    addDetail("Care home", payload.careHomeName as string | undefined)
+    usedKeys.add("careHomeName")
+    addDetail("Created by", payload.creatorName as string | undefined)
+    usedKeys.add("creatorName")
+    addDetail("Effective from", formatDate(payload.startDate))
+    usedKeys.add("startDate")
+    addDetail("Review date", formatDate(payload.reviewDate))
+    usedKeys.add("reviewDate")
+    addDetail("Summary", payload.message as string | undefined)
+    usedKeys.add("message")
+  } else {
+    addDetail("Summary", payload.message as string | undefined)
+    if (typeof payload.message === "string") {
+      usedKeys.add("message")
+    }
+  }
+
+  const ignoredKeys = new Set<string>([
+    ...usedKeys,
+    "subject",
+    "body",
+    "htmlBody",
+    "url",
+    "link",
+    "channel",
+  ])
+
+  const extraEntries = Object.entries(payload).filter(([key]) => !ignoredKeys.has(key))
+
+  return { details, extraEntries }
 }
 
 export default function NotificationsPage() {

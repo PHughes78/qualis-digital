@@ -5,13 +5,30 @@ import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase/client'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
-import { Users, Plus, Search, Home, Calendar, User, AlertCircle, Heart, Pill, Activity } from 'lucide-react'
+import {
+  Users,
+  Plus,
+  Search,
+  Home,
+  Calendar,
+  User,
+  AlertCircle,
+  Heart,
+  Pill,
+  Activity,
+  Utensils,
+  MessageCircle,
+  Baby,
+  ShieldAlert,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import Link from 'next/link'
+import type { ClientType } from '@/lib/database.types'
 
 interface Client {
   id: string
@@ -19,6 +36,7 @@ interface Client {
   last_name: string
   date_of_birth: string
   gender: string
+  client_type: ClientType
   nhs_number: string | null
   room_number: string | null
   admission_date: string | null
@@ -29,6 +47,8 @@ interface Client {
   allergies: string | null
   medications: string | null
   mobility_notes: string | null
+  dietary_requirements: string | null
+  communication_notes: string | null
   care_homes: {
     id: string
     name: string
@@ -38,6 +58,13 @@ interface Client {
 interface CareHome {
   id: string
   name: string
+}
+
+interface CareIndicator {
+  icon: LucideIcon
+  label: string
+  description: string
+  tone: string
 }
 
 export default function ClientsPage() {
@@ -50,6 +77,7 @@ export default function ClientsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCareHome, setSelectedCareHome] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('active')
+  const [clientTypeFilter, setClientTypeFilter] = useState<'all' | ClientType>('all')
   const supabase = createClient()
 
   useEffect(() => {
@@ -60,7 +88,7 @@ export default function ClientsPage() {
 
   useEffect(() => {
     filterClients()
-  }, [clients, searchTerm, selectedCareHome, statusFilter])
+  }, [clients, searchTerm, selectedCareHome, statusFilter, clientTypeFilter])
 
   const fetchData = async () => {
     try {
@@ -159,6 +187,10 @@ export default function ClientsPage() {
       filtered = filtered.filter(client => client.care_home_id === selectedCareHome)
     }
 
+    if (clientTypeFilter !== 'all') {
+      filtered = filtered.filter(client => client.client_type === clientTypeFilter)
+    }
+
     // Filter by search term
     if (searchTerm) {
       const term = searchTerm.toLowerCase()
@@ -193,6 +225,90 @@ export default function ClientsPage() {
     })
   }
 
+  const getClientTypeTheme = (type: ClientType) => {
+    if (type === 'child') {
+      return {
+        gradient: 'from-rose-50 via-orange-50 to-amber-50',
+        badgeClass: 'border-rose-300 bg-rose-100 text-rose-700',
+        badgeLabel: 'Child in care',
+        statusRing: 'border-rose-200',
+        avatarGlow: 'shadow-[0_0_0_4px] shadow-rose-100',
+      }
+    }
+    return {
+      gradient: 'from-blue-50 via-indigo-50 to-slate-50',
+      badgeClass: 'border-blue-300 bg-blue-100 text-blue-700',
+      badgeLabel: 'Adult in care',
+      statusRing: 'border-blue-200',
+      avatarGlow: 'shadow-[0_0_0_4px] shadow-blue-100',
+    }
+  }
+
+  const buildCareIndicators = (client: Client): CareIndicator[] => {
+    const indicators: CareIndicator[] = []
+
+    if (client.allergies) {
+      indicators.push({
+        icon: AlertCircle,
+        label: 'Allergies',
+        description: client.allergies,
+        tone: 'bg-orange-100 text-orange-700 border border-orange-200',
+      })
+    }
+
+    if (client.medical_conditions) {
+      indicators.push({
+        icon: Heart,
+        label: 'Medical conditions',
+        description: client.medical_conditions,
+        tone: 'bg-red-100 text-red-700 border border-red-200',
+      })
+    }
+
+    if (client.medications) {
+      indicators.push({
+        icon: Pill,
+        label: 'Medications',
+        description: client.medications,
+        tone: 'bg-sky-100 text-sky-700 border border-sky-200',
+      })
+    }
+
+    if (client.dietary_requirements) {
+      indicators.push({
+        icon: Utensils,
+        label: 'Dietary',
+        description: client.dietary_requirements,
+        tone: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
+      })
+    }
+
+    if (client.mobility_notes) {
+      indicators.push({
+        icon: Activity,
+        label: 'Mobility',
+        description: client.mobility_notes,
+        tone: 'bg-purple-100 text-purple-700 border border-purple-200',
+      })
+    }
+
+    if (client.communication_notes) {
+      indicators.push({
+        icon: MessageCircle,
+        label: 'Communication',
+        description: client.communication_notes,
+        tone: 'bg-indigo-100 text-indigo-700 border border-indigo-200',
+      })
+    }
+
+    return indicators
+  }
+
+  const totalClients = clients.length
+  const activeClientCount = clients.filter((client) => client.is_active).length
+  const childClientCount = clients.filter((client) => client.client_type === 'child').length
+  const adultClientCount = totalClients - childClientCount
+
   return (
     <ProtectedRoute allowedRoles={['business_owner', 'manager', 'carer']}>
       <DashboardLayout>
@@ -220,7 +336,7 @@ export default function ClientsPage() {
                 <CardTitle className="text-sm font-medium text-gray-600">Total Clients</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{clients.length}</div>
+                <div className="text-2xl font-bold">{totalClients}</div>
               </CardContent>
             </Card>
             <Card>
@@ -228,35 +344,40 @@ export default function ClientsPage() {
                 <CardTitle className="text-sm font-medium text-gray-600">Active Clients</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600">
-                  {clients.filter(c => c.is_active).length}
-                </div>
+                <div className="text-2xl font-bold text-green-600">{activeClientCount}</div>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600">Inactive</CardTitle>
+                <CardTitle className="text-sm font-medium text-gray-600">Adults in Care</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-gray-500">
-                  {clients.filter(c => !c.is_active).length}
-                </div>
+                <div className="text-2xl font-bold text-gray-700">{adultClientCount}</div>
+                <p className="mt-1 text-xs text-gray-500">Includes respite and residential placements.</p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600">Care Homes</CardTitle>
+                <CardTitle className="text-sm font-medium text-gray-600">Children in Care</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{careHomes.length}</div>
+                <div className="text-2xl font-bold text-rose-600">{childClientCount}</div>
+                <p className="mt-1 text-xs text-rose-500">Safeguarding reminders enabled.</p>
               </CardContent>
             </Card>
           </div>
+          <p className="text-xs text-gray-500">
+            {careHomes.length} care homes available. Use the filters below to focus by location or care model.
+          </p>
 
           {/* Filters */}
           <Card>
             <CardContent className="pt-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
+                <span>{careHomes.length} care homes available for placement.</span>
+                <span>Combine filters to focus on specific teams or risk profiles.</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 {/* Search */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Search</label>
@@ -300,6 +421,24 @@ export default function ClientsPage() {
                       <SelectItem value="all">All Statuses</SelectItem>
                       <SelectItem value="active">Active</SelectItem>
                       <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Client Type Filter */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Client Type</label>
+                  <Select
+                    value={clientTypeFilter}
+                    onValueChange={(value) => setClientTypeFilter(value as 'all' | ClientType)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Clients</SelectItem>
+                      <SelectItem value="adult">Adults</SelectItem>
+                      <SelectItem value="child">Children</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -364,146 +503,144 @@ export default function ClientsPage() {
 
           {/* Clients List */}
           {!loading && !error && filteredClients.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredClients.map((client) => (
-                <Card key={client.id} className="hover:shadow-lg transition-shadow overflow-hidden">
-                  {/* Profile Header Section */}
-                  <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-6 pb-12">
-                    <div className="flex flex-col items-center">
-                      {/* Round Profile Image */}
-                      <div className="relative w-24 h-24 mb-3">
-                        <div className="w-full h-full rounded-full overflow-hidden border-4 border-white shadow-lg bg-white">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {filteredClients.map((client) => {
+                const theme = getClientTypeTheme(client.client_type)
+                const careIndicators = buildCareIndicators(client)
+                const age = calculateAge(client.date_of_birth)
+                const isChild = client.client_type === 'child'
+
+                return (
+                  <Card
+                    key={client.id}
+                    className="relative overflow-hidden rounded-3xl border border-white/60 bg-white/80 shadow-sm transition-all hover:-translate-y-1 hover:shadow-argon"
+                  >
+                    <div className={`bg-gradient-to-br ${theme.gradient} p-6 pb-12`}>
+                      <div className="flex flex-col items-center text-center">
+                        <div
+                          className={`relative mb-3 h-24 w-24 rounded-full border-4 border-white bg-white shadow-lg ${theme.avatarGlow}`}
+                        >
                           {client.profile_image_url ? (
                             <img
                               src={client.profile_image_url}
                               alt={`${client.first_name} ${client.last_name}`}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                // Replace with placeholder if image fails to load
-                                e.currentTarget.style.display = 'none'
-                                const parent = e.currentTarget.parentElement
-                                if (parent) {
-                                  parent.innerHTML = `
-                                    <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-400 to-indigo-500">
-                                      <svg class="h-12 w-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                      </svg>
-                                    </div>
-                                  `
-                                }
+                              className="h-full w-full rounded-full object-cover"
+                              onError={(event) => {
+                                event.currentTarget.style.display = 'none'
                               }}
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-400 to-indigo-500">
+                            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-indigo-500">
                               <User className="h-12 w-12 text-white" />
                             </div>
                           )}
+                          <span
+                            className={`absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-3 ${theme.statusRing} ${
+                              client.is_active ? 'bg-emerald-500' : 'bg-gray-400'
+                            }`}
+                          />
                         </div>
-                        {/* Active Status Indicator */}
-                        <div className={`absolute bottom-0 right-0 w-6 h-6 rounded-full border-4 border-white ${client.is_active ? 'bg-green-500' : 'bg-gray-400'}`} />
+
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          {client.first_name} {client.last_name}
+                        </h3>
+                        <p className="text-sm text-gray-600">
+                          {age} {age === 1 ? 'year' : 'years'} • {client.gender}
+                        </p>
+
+                        <Badge className={`mt-3 flex items-center gap-1 text-xs ${theme.badgeClass}`}>
+                          {isChild ? <Baby className="h-3.5 w-3.5" /> : <ShieldAlert className="h-3.5 w-3.5" />}
+                          {theme.badgeLabel}
+                        </Badge>
                       </div>
-                      
-                      {/* Client Name & Age */}
-                      <h3 className="text-lg font-bold text-gray-900 text-center">
-                        {client.first_name} {client.last_name}
-                      </h3>
-                      <p className="text-sm text-gray-600">
-                        {calculateAge(client.date_of_birth)} years • {client.gender}
-                      </p>
-                    </div>
-                  </div>
-
-                  <CardContent className="space-y-4 -mt-6">
-                    {/* Care Home & Room */}
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-                      {client.care_homes && (
-                        <div className="flex items-center gap-2 text-sm mb-2">
-                          <Home className="h-4 w-4 text-blue-500" />
-                          <span className="font-medium text-gray-900">{client.care_homes.name}</span>
-                        </div>
-                      )}
-                      {client.room_number && (
-                        <div className="text-sm text-gray-600">
-                          Room {client.room_number}
-                        </div>
-                      )}
                     </div>
 
-                    {/* Medical Alerts Section - Only show if there are alerts */}
-                    {(client.medical_conditions || client.allergies || client.medications || client.mobility_notes) && (
-                      <div className="space-y-2">
-                        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Care Alerts</h4>
-                        
-                        {/* Medical Conditions */}
-                        {client.medical_conditions && (
-                          <div className="flex gap-2 items-start bg-red-50 border border-red-200 rounded-lg p-2">
-                            <Heart className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
-                            <div className="flex-1 min-w-0">
-                              <div className="text-xs font-medium text-red-900">Medical Conditions</div>
-                              <div className="text-xs text-red-700 line-clamp-2">{client.medical_conditions}</div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Allergies */}
-                        {client.allergies && (
-                          <div className="flex gap-2 items-start bg-orange-50 border border-orange-200 rounded-lg p-2">
-                            <AlertCircle className="h-4 w-4 text-orange-500 flex-shrink-0 mt-0.5" />
-                            <div className="flex-1 min-w-0">
-                              <div className="text-xs font-medium text-orange-900">Allergies</div>
-                              <div className="text-xs text-orange-700 line-clamp-2">{client.allergies}</div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Medications */}
-                        {client.medications && (
-                          <div className="flex gap-2 items-start bg-blue-50 border border-blue-200 rounded-lg p-2">
-                            <Pill className="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
-                            <div className="flex-1 min-w-0">
-                              <div className="text-xs font-medium text-blue-900">Medications</div>
-                              <div className="text-xs text-blue-700 line-clamp-2">{client.medications}</div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Mobility Notes */}
-                        {client.mobility_notes && (
-                          <div className="flex gap-2 items-start bg-purple-50 border border-purple-200 rounded-lg p-2">
-                            <Activity className="h-4 w-4 text-purple-500 flex-shrink-0 mt-0.5" />
-                            <div className="flex-1 min-w-0">
-                              <div className="text-xs font-medium text-purple-900">Mobility</div>
-                              <div className="text-xs text-purple-700 line-clamp-2">{client.mobility_notes}</div>
-                            </div>
-                          </div>
-                        )}
+                    {careIndicators.length > 0 && (
+                      <div className="-mt-8 flex flex-wrap justify-center gap-2 px-4">
+                        {careIndicators.map((indicator) => (
+                          <span
+                            key={indicator.label}
+                            title={indicator.description}
+                            aria-label={indicator.description}
+                            className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${indicator.tone} shadow-sm transition-colors hover:opacity-90`}
+                          >
+                            <indicator.icon className="h-3.5 w-3.5" />
+                            {indicator.label}
+                          </span>
+                        ))}
                       </div>
                     )}
 
-                    {/* Additional Info */}
-                    <div className="space-y-1 text-xs text-gray-600">
-                      {client.nhs_number && (
-                        <div>
-                          <span className="font-medium">NHS:</span> {client.nhs_number}
-                        </div>
+                    <CardContent className="space-y-4 pb-6 pt-6">
+                      {careIndicators.length > 0 && (
+                        <p className="text-center text-[11px] uppercase tracking-wide text-gray-400">
+                          Hover a badge above to read the summary
+                        </p>
                       )}
-                      {client.admission_date && (
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          <span>Admitted {formatDate(client.admission_date)}</span>
-                        </div>
-                      )}
-                    </div>
+                      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                        {client.care_homes ? (
+                          <div className="flex items-start gap-3">
+                            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                              <Home className="h-4 w-4" />
+                            </span>
+                            <div className="space-y-1">
+                              <p className="text-sm font-semibold text-gray-900">{client.care_homes.name}</p>
+                              {client.room_number ? (
+                                <p className="text-xs text-gray-600">Room {client.room_number}</p>
+                              ) : (
+                                <p className="text-xs text-gray-400">Room not assigned</p>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-500">No care home assigned</p>
+                        )}
+                      </div>
 
-                    {/* Actions */}
-                    <Button asChild variant="default" size="sm" className="w-full bg-gradient-primary hover:opacity-90">
-                      <Link href={`/clients/${client.id}`}>
-                        View Full Profile
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
+                      <div className="grid grid-cols-2 gap-3 text-xs text-gray-600">
+                        {client.nhs_number ? (
+                          <div>
+                            <span className="font-medium text-gray-800">NHS</span>
+                            <p className="mt-1 font-semibold tracking-wide text-gray-700">{client.nhs_number}</p>
+                          </div>
+                        ) : null}
+                        <div>
+                          <span className="font-medium text-gray-800">Admitted</span>
+                          <p className="mt-1 text-gray-700">
+                            {client.admission_date ? formatDate(client.admission_date) : 'Not recorded'}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-800">Care duration</span>
+                          <p className="mt-1 text-gray-700">
+                            {client.admission_date
+                              ? `${Math.max(
+                                  1,
+                                  Math.floor(
+                                    (Date.now() - new Date(client.admission_date).getTime()) / (1000 * 60 * 60 * 24),
+                                  ),
+                                )} days`
+                              : '—'}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-800">Status</span>
+                          <p className="mt-1 text-gray-700">{client.is_active ? 'Active' : 'Inactive'}</p>
+                        </div>
+                      </div>
+
+                      <Button
+                        asChild
+                        variant="default"
+                        size="sm"
+                        className="w-full rounded-full bg-gradient-primary font-medium shadow-soft hover:opacity-90"
+                      >
+                        <Link href={`/clients/${client.id}`}>View full profile</Link>
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )
+              })}
             </div>
           )}
         </div>

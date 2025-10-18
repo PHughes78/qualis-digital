@@ -14,6 +14,8 @@ export type Priority = 'low' | 'medium' | 'high' | 'urgent';
 
 export type Gender = 'male' | 'female' | 'other' | 'prefer_not_to_say';
 
+export type ClientType = 'adult' | 'child';
+
 export type CarePlanVersionStatus = 'draft' | 'active' | 'archived';
 
 export type CarePlanTaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
@@ -149,6 +151,7 @@ export interface Database {
           last_name: string;
           date_of_birth: string;
           gender: Gender | null;
+          client_type: ClientType;
           address: string | null;
           postcode: string | null;
           emergency_contact_name: string | null;
@@ -178,6 +181,7 @@ export interface Database {
           last_name: string;
           date_of_birth: string;
           gender?: Gender | null;
+          client_type?: ClientType;
           address?: string | null;
           postcode?: string | null;
           emergency_contact_name?: string | null;
@@ -207,6 +211,7 @@ export interface Database {
           last_name?: string;
           date_of_birth?: string;
           gender?: Gender | null;
+          client_type?: ClientType;
           address?: string | null;
           postcode?: string | null;
           emergency_contact_name?: string | null;
@@ -1104,6 +1109,7 @@ export interface Database {
       user_role: UserRole;
       care_home_type: CareHomeType;
       assessment_type: AssessmentType;
+      client_type: ClientType;
       incident_severity: IncidentSeverity;
       incident_status: IncidentStatus;
       care_plan_version_status: CarePlanVersionStatus;

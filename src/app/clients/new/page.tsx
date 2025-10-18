@@ -12,9 +12,11 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Alert } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, UserPlus, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import type { ClientType } from '@/lib/database.types'
 
 interface CareHome {
   id: string
@@ -37,6 +39,7 @@ export default function NewClientPage() {
     last_name: '',
     date_of_birth: '',
     gender: 'prefer_not_to_say',
+    client_type: 'adult' as ClientType,
     nhs_number: '',
     
     // Care Home Assignment
@@ -73,6 +76,22 @@ export default function NewClientPage() {
     fetchCareHomes()
   }, [])
 
+  const calculateAge = (dob: string) => {
+    const today = new Date()
+    const birthDate = new Date(dob)
+    let age = today.getFullYear() - birthDate.getFullYear()
+    const monthDifference = today.getMonth() - birthDate.getMonth()
+    if (monthDifference < 0 || (monthDifference === 0 && today.getDate() < birthDate.getDate())) {
+      age--
+    }
+    return age
+  }
+
+  const deriveClientType = (dob: string): ClientType => {
+    if (!dob) return 'adult'
+    return calculateAge(dob) < 18 ? 'child' : 'adult'
+  }
+
   const fetchCareHomes = async () => {
     try {
       const { data, error } = await supabase
@@ -93,7 +112,16 @@ export default function NewClientPage() {
   }
 
   const handleChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+    if (field === 'date_of_birth') {
+      const nextType = deriveClientType(value)
+      setFormData(prev => ({
+        ...prev,
+        date_of_birth: value,
+        client_type: nextType,
+      }))
+    } else {
+      setFormData(prev => ({ ...prev, [field]: value }))
+    }
     setError(null)
   }
 
@@ -110,6 +138,10 @@ export default function NewClientPage() {
       setError('Date of birth is required')
       return false
     }
+    if (!formData.client_type) {
+      setError('Please select whether this is an adult or child in care')
+      return false
+    }
     if (!formData.care_home_id) {
       setError('Please select a care home')
       return false
@@ -120,6 +152,10 @@ export default function NewClientPage() {
     }
     if (!formData.emergency_contact_phone.trim()) {
       setError('Emergency contact phone is required')
+      return false
+    }
+    if (formData.client_type === 'child' && !formData.emergency_contact_relationship.trim()) {
+      setError('Please capture the emergency contact relationship for children in care')
       return false
     }
     return true
@@ -141,6 +177,7 @@ export default function NewClientPage() {
         last_name: formData.last_name.trim(),
         date_of_birth: formData.date_of_birth,
         gender: formData.gender,
+        client_type: formData.client_type,
         care_home_id: formData.care_home_id,
         emergency_contact_name: formData.emergency_contact_name.trim(),
         emergency_contact_phone: formData.emergency_contact_phone.trim(),
@@ -191,20 +228,69 @@ export default function NewClientPage() {
     }
   }
 
+  const derivedAge = formData.date_of_birth ? calculateAge(formData.date_of_birth) : null
+  const recommendedType = formData.date_of_birth ? deriveClientType(formData.date_of_birth) : formData.client_type
+  const typeWarning = Boolean(formData.date_of_birth) && recommendedType !== formData.client_type
+  const typeBadgeClass =
+    formData.client_type === 'child'
+      ? 'border-rose-300 bg-rose-100 text-rose-700'
+      : 'border-blue-300 bg-blue-100 text-blue-700'
+
   return (
     <ProtectedRoute allowedRoles={['business_owner', 'manager']}>
       <DashboardLayout>
-        <div className="max-w-4xl mx-auto space-y-6">
-          {/* Header */}
-          <div>
-            <Button asChild variant="ghost" className="mb-4">
+        <div className="mx-auto max-w-5xl space-y-6">
+          <div className="space-y-4">
+            <Button asChild variant="ghost" className="w-fit">
               <Link href="/clients">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Clients
               </Link>
             </Button>
-            <h1 className="text-3xl font-bold text-gray-900">Add New Client</h1>
-            <p className="text-gray-600 mt-1">Create a new client record</p>
+
+            <Card className="overflow-hidden rounded-3xl border border-white/60 bg-gradient-to-br from-blue-50 via-indigo-50 to-slate-50 shadow-soft">
+              <CardContent className="space-y-6 p-6">
+                <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+                  <div className="space-y-3">
+                    <h1 className="text-3xl font-bold text-gray-900">Add a new client</h1>
+                    <p className="text-sm text-gray-700">
+                      Capture essential personal, clinical, and safeguarding details so the care team has what they need
+                      on day one.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge className={typeBadgeClass}>
+                        {formData.client_type === 'child' ? 'Child in care' : 'Adult in care'}
+                      </Badge>
+                      {derivedAge !== null && (
+                        <Badge variant="outline">
+                          {derivedAge} {derivedAge === 1 ? 'year' : 'years'}
+                        </Badge>
+                      )}
+                      <Badge variant="outline" className="font-mono uppercase">
+                        {formData.care_home_id ? 'Placement assigned' : 'Placement pending'}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/60 bg-white/70 p-4 text-sm text-gray-700 shadow-sm">
+                    <p className="font-semibold text-gray-900">CQC essentials</p>
+                    <ul className="mt-2 list-disc space-y-1 pl-4 text-xs">
+                      <li>Confirm consent and next of kin information.</li>
+                      <li>Flag dietary, allergy, and medication requirements.</li>
+                      <li>Record safeguarding considerations for children.</li>
+                    </ul>
+                  </div>
+                </div>
+
+                {typeWarning && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+                    Based on the date of birth, we recommend classifying this client as{' '}
+                    <span className="font-semibold">{recommendedType}</span>. You can override this if there is a specific
+                    placement agreement.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
 
           {/* Success Message */}
@@ -236,8 +322,8 @@ export default function NewClientPage() {
                 <CardTitle>Basic Information</CardTitle>
                 <CardDescription>Personal details of the client</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+              <CardContent className="space-y-5">
+                <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="first_name">First Name *</Label>
                     <Input
@@ -263,7 +349,7 @@ export default function NewClientPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-4 md:grid-cols-3">
                   <div className="space-y-2">
                     <Label htmlFor="date_of_birth">Date of Birth *</Label>
                     <Input
@@ -274,6 +360,11 @@ export default function NewClientPage() {
                       disabled={loading}
                       required
                     />
+                    {derivedAge !== null && (
+                      <p className="text-xs text-gray-500">
+                        Age {derivedAge} • Recommended classification: {recommendedType}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -293,6 +384,33 @@ export default function NewClientPage() {
                         <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Client type *</Label>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant={formData.client_type === 'adult' ? 'default' : 'outline'}
+                        onClick={() => handleChange('client_type', 'adult')}
+                        disabled={loading}
+                      >
+                        Adult
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={formData.client_type === 'child' ? 'default' : 'outline'}
+                        onClick={() => handleChange('client_type', 'child')}
+                        disabled={loading}
+                      >
+                        Child
+                      </Button>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      {formData.client_type === 'child'
+                        ? 'Children in care add safeguarding and education prompts throughout the record.'
+                        : 'Adult records emphasise independence, capacity, and advanced care planning.'}
+                    </p>
                   </div>
                 </div>
 

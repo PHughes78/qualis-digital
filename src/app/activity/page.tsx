@@ -11,6 +11,7 @@ import { AlertCircle, ArrowLeft, ArrowRight, ClipboardList, Clock, RefreshCw, Se
 import { useAuth } from "@/contexts/AuthContext"
 import { useAuditEvents } from "@/hooks/use-audit-events"
 import type { Database } from "@/lib/database.types"
+import Link from "next/link"
 
 type AuditRow = Database["public"]["Tables"]["audit_events"]["Row"]
 
@@ -107,7 +108,7 @@ function ActivityDetail({
     item.metadata && typeof item.metadata === "object"
       ? (item.metadata as Record<string, unknown>)
       : undefined
-  const metadataEntries = metadata ? Object.entries(metadata) : []
+  const { details, extraEntries, href, external } = buildAuditDetails(metadata)
 
   return (
     <div className="space-y-4">
@@ -146,20 +147,43 @@ function ActivityDetail({
 
       <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Metadata</p>
-        {metadataEntries.length === 0 ? (
-          <p className="mt-2 text-sm text-muted-foreground">No additional metadata captured for this action.</p>
-        ) : (
-          <div className="mt-3 space-y-2 text-sm">
-            {metadataEntries.map(([key, value]) => (
-              <div key={key} className="rounded-lg border border-border/50 bg-card/70 p-2">
-                <span className="text-xs uppercase tracking-wide text-muted-foreground">{key}</span>
-                <pre className="mt-1 whitespace-pre-wrap break-words text-foreground">
-                  {typeof value === "string" ? value : JSON.stringify(value, null, 2)}
-                </pre>
+        <div className="mt-3 space-y-3 text-sm">
+          {details.length === 0 ? (
+            <p className="text-muted-foreground">No additional details captured for this action.</p>
+          ) : (
+            details.map(({ label, value }) => (
+              <div key={label} className="rounded-lg border border-border/50 bg-card/70 p-2">
+                <span className="text-xs uppercase tracking-wide text-muted-foreground">{label}</span>
+                <span className="mt-1 block font-medium text-foreground">{value}</span>
               </div>
-            ))}
-          </div>
-        )}
+            ))
+          )}
+
+          {href ? (
+            <Button asChild size="sm">
+              {external ? (
+                <a href={href} target="_blank" rel="noopener noreferrer">
+                  Open related record
+                </a>
+              ) : (
+                <Link href={href}>Open related record</Link>
+              )}
+            </Button>
+          ) : null}
+
+          {extraEntries.length > 0 ? (
+            <div className="space-y-2">
+              {extraEntries.map(([key, value]) => (
+                <div key={key} className="rounded-lg border border-border/50 bg-card/70 p-2">
+                  <span className="text-xs uppercase tracking-wide text-muted-foreground">{key}</span>
+                  <pre className="mt-1 whitespace-pre-wrap break-words text-foreground">
+                    {typeof value === "string" ? value : JSON.stringify(value, null, 2)}
+                  </pre>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
   )
@@ -405,4 +429,93 @@ export default function ActivityPage() {
       </DashboardLayout>
     </ProtectedRoute>
   )
+}
+
+function buildAuditDetails(metadata?: Record<string, unknown>): {
+  details: { label: string; value: string }[]
+  extraEntries: [string, unknown][]
+  href: string | null
+  external: boolean
+} {
+  if (!metadata) return { details: [], extraEntries: [], href: null, external: false }
+
+  const details: { label: string; value: string }[] = []
+  const usedKeys = new Set<string>()
+
+  const entityType = typeof metadata.entityType === "string" ? metadata.entityType : undefined
+  const addDetail = (label: string, value?: string | null) => {
+    if (!value) return
+    details.push({ label, value })
+  }
+
+  const formatDateValue = (value?: unknown) => {
+    if (typeof value !== "string") return undefined
+    return formatDateTime(value)
+  }
+
+  if (entityType === "incident") {
+    usedKeys.add("entityType")
+    addDetail("Incident type", metadata.incidentType as string | undefined)
+    usedKeys.add("incidentType")
+    addDetail("Severity", metadata.severity as string | undefined)
+    usedKeys.add("severity")
+    addDetail("Resident", metadata.clientName as string | undefined)
+    usedKeys.add("clientName")
+    addDetail("Care home", metadata.careHomeName as string | undefined)
+    usedKeys.add("careHomeName")
+    addDetail("Incident date", formatDateValue(metadata.incidentDate))
+    usedKeys.add("incidentDate")
+    addDetail("Reported by", metadata.reporterName as string | undefined)
+    usedKeys.add("reporterName")
+    addDetail("Summary", metadata.message as string | undefined)
+    usedKeys.add("message")
+  } else if (entityType === "care_plan") {
+    usedKeys.add("entityType")
+    addDetail("Care plan title", metadata.title as string | undefined)
+    usedKeys.add("title")
+    addDetail("Resident", metadata.clientName as string | undefined)
+    usedKeys.add("clientName")
+    addDetail("Care home", metadata.careHomeName as string | undefined)
+    usedKeys.add("careHomeName")
+    addDetail("Created by", metadata.creatorName as string | undefined)
+    usedKeys.add("creatorName")
+    addDetail("Effective from", formatDateValue(metadata.startDate))
+    usedKeys.add("startDate")
+    addDetail("Review date", formatDateValue(metadata.reviewDate))
+    usedKeys.add("reviewDate")
+    addDetail("Summary", metadata.message as string | undefined)
+    usedKeys.add("message")
+  } else {
+    addDetail("Summary", metadata.message as string | undefined)
+    if (typeof metadata.message === "string") {
+      usedKeys.add("message")
+    }
+  }
+
+  const linkValue = typeof metadata.link === "string" ? metadata.link : undefined
+  const urlValue = typeof metadata.url === "string" ? metadata.url : undefined
+
+  const href =
+    linkValue && linkValue.startsWith("/")
+      ? linkValue
+      : urlValue
+        ? urlValue
+        : linkValue
+  const external = !!href && href.startsWith("http") && !href.startsWith("/")
+
+  const ignoredKeys = new Set<string>([
+    ...usedKeys,
+    "subject",
+    "body",
+    "htmlBody",
+    "url",
+    "link",
+    "channel",
+    "entityId",
+    "careHomeId",
+  ])
+
+  const extraEntries = Object.entries(metadata).filter(([key]) => !ignoredKeys.has(key))
+
+  return { details, extraEntries, href: href ?? null, external }
 }

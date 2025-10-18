@@ -3,6 +3,12 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { createClient as createServerSupabaseClient } from '@/lib/supabase/server'
 import type { NotificationChannel } from '@/lib/database.types'
 
+const appBaseUrl =
+  process.env.NOTIFICATION_APP_BASE_URL ??
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  process.env.NEXT_PUBLIC_APP_URL ??
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')
+
 type IncidentCreatedEvent = {
   type: 'incident.created'
   incidentId: string
@@ -116,6 +122,7 @@ async function handleIncidentCreated(event: IncidentCreatedEvent, actorId: strin
     reporterName: details.reporterName ?? null,
     careHomeId,
     careHomeName,
+    message: notificationMessage,
     link: `/incidents/${incidentId}`,
   }
 
@@ -163,6 +170,7 @@ async function handleCarePlanCreated(event: CarePlanCreatedEvent, actorId: strin
     creatorName: details.creatorName ?? null,
     careHomeId,
     careHomeName,
+    message: notificationMessage,
     link: `/care-plans/${carePlanId}`,
   }
 
@@ -256,10 +264,25 @@ async function queueNotifications(
   const entityId =
     typeof payload.entityId === 'string' ? (payload.entityId as string) : null
 
+  const linkPath =
+    typeof payload.link === 'string' && payload.link.startsWith('/') ? payload.link : null
+  const linkUrl = linkPath && appBaseUrl ? new URL(linkPath, appBaseUrl).toString() : null
+
+  if (linkPath && !linkUrl) {
+    console.warn('workflow-events: base URL not configured, email link omitted')
+  }
+
+  const textBody = linkUrl ? `${body}\n\nView record: ${linkUrl}` : body
+  const htmlBody = linkUrl
+    ? `<p>${body}</p><p><a href="${linkUrl}">View record</a></p>`
+    : `<p>${body}</p>`
+
   const enrichedPayload = {
     ...payload,
     subject,
-    body,
+    body: textBody,
+    htmlBody,
+    url: linkUrl,
   }
 
   const notifications = recipientIds.flatMap((recipientId) =>

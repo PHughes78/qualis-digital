@@ -9,21 +9,27 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { 
-  ArrowLeft, 
-  User, 
-  Calendar, 
-  Phone, 
-  Home, 
+import {
+  ArrowLeft,
+  User,
+  Calendar,
+  Phone,
+  Home,
   MapPin,
   Heart,
   Pill,
   AlertTriangle,
   FileText,
-  Edit
+  Edit,
+  Utensils,
+  MessageCircle,
+  Baby,
+  Activity,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
+import type { ClientType } from '@/lib/database.types'
 
 interface Client {
   id: string
@@ -31,6 +37,7 @@ interface Client {
   last_name: string
   date_of_birth: string
   gender: string
+  client_type: ClientType
   nhs_number: string | null
   room_number: string | null
   admission_date: string | null
@@ -58,6 +65,13 @@ interface Client {
     postcode: string
     phone: string
   } | null
+}
+
+interface CareIndicator {
+  icon: LucideIcon
+  label: string
+  description: string
+  tone: string
 }
 
 export default function ClientDetailPage() {
@@ -134,6 +148,84 @@ export default function ClientDetailPage() {
     ).join(' ')
   }
 
+  const getClientTypeTheme = (type: ClientType) => {
+    if (type === 'child') {
+      return {
+        gradient: 'from-rose-50 via-orange-50 to-amber-50',
+        badgeClass: 'border-rose-300 bg-rose-100 text-rose-700',
+        badgeLabel: 'Child in care',
+        iconBackground: 'bg-rose-100 text-rose-600',
+      }
+    }
+
+    return {
+      gradient: 'from-blue-50 via-indigo-50 to-slate-50',
+      badgeClass: 'border-blue-300 bg-blue-100 text-blue-700',
+      badgeLabel: 'Adult in care',
+      iconBackground: 'bg-blue-100 text-blue-600',
+    }
+  }
+
+  const buildCareIndicators = (client: Client): CareIndicator[] => {
+    const indicators: CareIndicator[] = []
+
+    if (client.allergies) {
+      indicators.push({
+        icon: AlertTriangle,
+        label: 'Allergies',
+        description: client.allergies,
+        tone: 'bg-orange-100 text-orange-700 border border-orange-200',
+      })
+    }
+
+    if (client.medical_conditions) {
+      indicators.push({
+        icon: Heart,
+        label: 'Medical',
+        description: client.medical_conditions,
+        tone: 'bg-red-100 text-red-700 border border-red-200',
+      })
+    }
+
+    if (client.medications) {
+      indicators.push({
+        icon: Pill,
+        label: 'Medications',
+        description: client.medications,
+        tone: 'bg-sky-100 text-sky-700 border border-sky-200',
+      })
+    }
+
+    if (client.dietary_requirements) {
+      indicators.push({
+        icon: Utensils,
+        label: 'Dietary',
+        description: client.dietary_requirements,
+        tone: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
+      })
+    }
+
+    if (client.mobility_notes) {
+      indicators.push({
+        icon: Activity,
+        label: 'Mobility',
+        description: client.mobility_notes,
+        tone: 'bg-purple-100 text-purple-700 border border-purple-200',
+      })
+    }
+
+    if (client.communication_notes) {
+      indicators.push({
+        icon: MessageCircle,
+        label: 'Communication',
+        description: client.communication_notes,
+        tone: 'bg-indigo-100 text-indigo-700 border border-indigo-200',
+      })
+    }
+
+    return indicators
+  }
+
   if (loading) {
     return (
       <ProtectedRoute allowedRoles={['business_owner', 'manager', 'carer']}>
@@ -168,48 +260,90 @@ export default function ClientDetailPage() {
     )
   }
 
+  const theme = getClientTypeTheme(client.client_type)
+  const careIndicators = buildCareIndicators(client)
+  const age = calculateAge(client.date_of_birth)
+  const isChild = client.client_type === 'child'
+
   return (
     <ProtectedRoute allowedRoles={['business_owner', 'manager', 'carer']}>
       <DashboardLayout>
         <div className="space-y-6">
-          {/* Header */}
-          <div className="flex justify-between items-start">
-            <div>
-              <Button asChild variant="ghost" className="mb-4">
-                <Link href="/clients">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Clients
-                </Link>
-              </Button>
-              <div className="flex items-center gap-4">
-                <div className="bg-blue-100 rounded-full p-4">
-                  <User className="h-8 w-8 text-blue-600" />
-                </div>
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-900">
-                    {client.first_name} {client.last_name}
-                  </h1>
-                  <div className="flex gap-2 mt-2">
-                    <Badge variant={client.is_active ? "default" : "outline"}>
-                      {client.is_active ? 'Active' : 'Inactive'}
-                    </Badge>
-                    <Badge variant="outline">
-                      {calculateAge(client.date_of_birth)} years old
-                    </Badge>
-                    <Badge variant="outline">
-                      {getGenderDisplay(client.gender)}
-                    </Badge>
+          <div className="space-y-4">
+            <Button asChild variant="ghost" className="w-fit">
+              <Link href="/clients">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Clients
+              </Link>
+            </Button>
+
+            <Card className={`overflow-hidden rounded-3xl border border-white/60 bg-gradient-to-br ${theme.gradient} shadow-soft`}>
+              <CardContent className="flex flex-col gap-6 p-6 md:flex-row md:items-center md:justify-between">
+                <div className="flex flex-1 items-center gap-4">
+                  <div className={`flex h-16 w-16 items-center justify-center rounded-2xl ${theme.iconBackground}`}>
+                    {isChild ? <Baby className="h-8 w-8" /> : <User className="h-8 w-8" />}
+                  </div>
+                  <div className="space-y-2">
+                    <h1 className="text-3xl font-bold text-gray-900">
+                      {client.first_name} {client.last_name}
+                    </h1>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge className={theme.badgeClass}>{theme.badgeLabel}</Badge>
+                      <Badge variant={client.is_active ? 'default' : 'outline'}>
+                        {client.is_active ? 'Active placement' : 'Inactive'}
+                      </Badge>
+                      <Badge variant="outline">
+                        {age} {age === 1 ? 'year' : 'years'}
+                      </Badge>
+                      <Badge variant="outline">{getGenderDisplay(client.gender)}</Badge>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-            {(profile?.role === 'business_owner' || profile?.role === 'manager') && (
-              <Button asChild>
-                <Link href={`/clients/${client.id}/edit`}>
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit Client
-                </Link>
-              </Button>
+                <div className="grid gap-2 text-sm text-gray-700 md:text-right">
+                  <p>
+                    <span className="font-semibold text-gray-900">NHS:</span>{' '}
+                    {client.nhs_number ?? 'Not recorded'}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-gray-900">Admitted:</span>{' '}
+                    {formatDate(client.admission_date)}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-gray-900">Care home:</span>{' '}
+                    {client.care_homes?.name ?? 'Not assigned'}
+                  </p>
+                </div>
+                {(profile?.role === 'business_owner' || profile?.role === 'manager') && (
+                  <Button asChild>
+                    <Link href={`/clients/${client.id}/edit`}>
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit Client
+                    </Link>
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+
+            {careIndicators.length > 0 && (
+              <Card className="rounded-3xl border border-white/60 bg-white/80">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold text-gray-900">Key care flags</CardTitle>
+                  <CardDescription>Hover each tag for a quick reminder.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-wrap gap-2">
+                  {careIndicators.map((indicator) => (
+                    <span
+                      key={indicator.label}
+                      title={indicator.description}
+                      aria-label={indicator.description}
+                      className={`flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${indicator.tone} shadow-sm`}
+                    >
+                      <indicator.icon className="h-3.5 w-3.5" />
+                      {indicator.label}
+                    </span>
+                  ))}
+                </CardContent>
+              </Card>
             )}
           </div>
 
@@ -237,6 +371,10 @@ export default function ClientDetailPage() {
                     <div className="flex justify-between">
                       <span className="text-gray-600">Age:</span>
                       <span className="font-medium">{calculateAge(client.date_of_birth)} years</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Client type:</span>
+                      <span className="font-medium capitalize">{client.client_type}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Gender:</span>
