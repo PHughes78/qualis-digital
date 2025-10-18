@@ -9,6 +9,21 @@ import {
   Priority,
 } from '@/lib/database.types'
 
+interface CreateCarePlanInput {
+  clientId: string
+  title: string
+  startDate: string
+  createdBy: string
+  description?: string | null
+  goals?: string | null
+  interventions?: string | null
+  endDate?: string | null
+  reviewDate?: string | null
+  isActive?: boolean
+  clientName?: string
+  creatorName?: string
+}
+
 interface CreateVersionInput {
   carePlanId: string
   title: string
@@ -36,6 +51,7 @@ interface ScheduleReviewInput {
 }
 
 interface UseCarePlanMutations {
+  createCarePlan: (input: CreateCarePlanInput) => Promise<string | null>
   createVersion: (input: CreateVersionInput) => Promise<string | null>
   createTask: (input: CreateTaskInput) => Promise<string | null>
   scheduleReview: (input: ScheduleReviewInput) => Promise<string | null>
@@ -45,6 +61,79 @@ interface UseCarePlanMutations {
 
 export function useCarePlanMutations(): UseCarePlanMutations {
   const supabase = useMemo(() => createClient(), [])
+
+  const createCarePlan = async ({
+    clientId,
+    title,
+    startDate,
+    createdBy,
+    description,
+    goals,
+    interventions,
+    endDate,
+    reviewDate,
+    isActive = true,
+    clientName,
+    creatorName,
+  }: CreateCarePlanInput) => {
+    if (!clientId || !title || !startDate || !createdBy) {
+      throw new Error('Missing required fields for creating a care plan.')
+    }
+
+    const payload = {
+      client_id: clientId,
+      title,
+      description: description ?? null,
+      goals: goals ?? null,
+      interventions: interventions ?? null,
+      start_date: startDate,
+      end_date: endDate ?? null,
+      review_date: reviewDate ?? null,
+      is_active: isActive,
+      created_by: createdBy,
+    }
+
+    const { data, error } = await supabase
+      .from('care_plans')
+      .insert(payload)
+      .select('id')
+      .single()
+
+    if (error) {
+      throw error
+    }
+
+    const carePlanId = data?.id ?? null
+
+    if (carePlanId) {
+      try {
+        const response = await fetch('/api/workflows/events', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'care_plan.created',
+            carePlanId,
+            clientId,
+            details: {
+              title,
+              clientName: clientName ?? null,
+              creatorName: creatorName ?? null,
+              startDate,
+              reviewDate: reviewDate ?? null,
+            },
+          }),
+        })
+
+        if (!response.ok) {
+          console.warn('useCarePlanMutations: workflow notification responded with error', response.status)
+        }
+      } catch (err) {
+        console.warn('useCarePlanMutations: workflow notification failed', err)
+      }
+    }
+
+    return carePlanId
+  }
 
   const createVersion = async ({
     carePlanId,
@@ -211,6 +300,7 @@ export function useCarePlanMutations(): UseCarePlanMutations {
   }
 
   return {
+    createCarePlan,
     createVersion,
     createTask,
     scheduleReview,

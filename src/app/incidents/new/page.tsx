@@ -16,6 +16,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useAuth } from "@/contexts/AuthContext"
 import { createClient } from "@/lib/supabase/client"
 import { GuidanceHelper } from "@/components/guidance-helper"
+import { useIncidentMutations } from "@/hooks/use-incident-mutations"
+import { IncidentSeverity } from "@/lib/database.types"
 
 interface ClientOption {
   id: string
@@ -30,6 +32,7 @@ interface ClientOption {
 export default function NewIncidentPage() {
   const router = useRouter()
   const { profile, loading: authLoading } = useAuth()
+  const { createIncident } = useIncidentMutations()
   const supabase = useMemo(() => createClient(), [])
 
   const [clients, setClients] = useState<ClientOption[]>([])
@@ -41,7 +44,7 @@ export default function NewIncidentPage() {
     return iso.substring(0, 16)
   })
   const [incidentType, setIncidentType] = useState("")
-  const [severity, setSeverity] = useState("medium")
+  const [severity, setSeverity] = useState<IncidentSeverity>("medium")
   const [location, setLocation] = useState("")
   const [description, setDescription] = useState("")
   const [immediateAction, setImmediateAction] = useState("")
@@ -110,31 +113,29 @@ export default function NewIncidentPage() {
 
     setSubmitting(true)
     try {
-      const incidentPayload = {
-        client_id: clientId,
-        care_home_id: selectedClient.care_home_id,
-        incident_type: incidentType.trim(),
+      const incidentId = await createIncident({
+        clientId,
+        careHomeId: selectedClient.care_home_id,
+        incidentType: incidentType.trim(),
         severity,
         status: 'open',
         title: incidentType.trim(),
         description: description.trim(),
         location: location.trim() || null,
-        incident_date: new Date(incidentDate).toISOString(),
-        immediate_action_taken: immediateAction.trim() || null,
-        follow_up_required: followUpRequired,
-        follow_up_notes: followUpRequired ? followUpNotes.trim() || null : null,
-        reported_by: profile.id,
+        incidentDate: new Date(incidentDate).toISOString(),
+        immediateActionTaken: immediateAction.trim() || null,
+        followUpRequired,
+        followUpNotes: followUpRequired ? followUpNotes.trim() || null : null,
+        reportedBy: profile.id,
+        clientName: `${selectedClient.first_name} ${selectedClient.last_name}`,
+        reporterName: profile.first_name && profile.last_name ? `${profile.first_name} ${profile.last_name}` : profile.email,
+      })
+
+      if (!incidentId) {
+        throw new Error('Incident created but no identifier returned.')
       }
 
-      const { data, error: insertError } = await supabase
-        .from('incidents')
-        .insert(incidentPayload)
-        .select('id')
-        .single()
-
-      if (insertError) throw insertError
-
-      router.push(`/incidents/${data?.id}`)
+      router.push(`/incidents/${incidentId}`)
     } catch (err) {
       console.error('Failed to create incident', err)
       setError(err instanceof Error ? err.message : 'Unable to create incident.')

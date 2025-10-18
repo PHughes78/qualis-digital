@@ -93,6 +93,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: 'Care Plans', href: '/care-plans', icon: FileText, roles: ['carer', 'manager', 'business_owner'] },
     { name: 'Handovers', href: '/handovers', icon: FileText, roles: ['carer', 'manager', 'business_owner'] },
     { name: 'Incidents', href: '/incidents', icon: AlertTriangle, roles: ['carer', 'manager', 'business_owner'] },
+    { name: 'Notifications', href: '/notifications', icon: Bell, roles: ['carer', 'manager', 'business_owner'] },
+    { name: 'Activity', href: '/activity', icon: Clock, roles: ['manager', 'business_owner'] },
   ]
 
   const filteredNavigation = navigationItems.filter((item) => profile?.role && item.roles.includes(profile.role))
@@ -236,9 +238,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="icon-sm" className="relative rounded-2xl border border-white/30">
-                    <Bell className="size-4" />
-                    <span className="absolute right-1 top-1 block size-2 rounded-full bg-destructive" />
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="icon-sm"
+                    className="relative rounded-2xl border border-white/30"
+                  >
+                    <Link href="/notifications" className="flex size-full items-center justify-center rounded-2xl">
+                      <Bell className="size-4" />
+                      <span className="absolute right-1 top-1 block size-2 rounded-full bg-destructive" />
+                    </Link>
                   </Button>
 
                   {profile && (

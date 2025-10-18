@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { GuidanceHelper } from "@/components/guidance-helper"
+import { useCarePlanMutations } from "@/hooks/use-care-plan-mutations"
 
 interface ClientOption {
   id: string
@@ -28,6 +29,7 @@ interface ClientOption {
 export default function NewCarePlanPage() {
   const router = useRouter()
   const { profile, loading: authLoading } = useAuth()
+  const { createCarePlan } = useCarePlanMutations()
   const supabase = useMemo(() => createClient(), [])
 
   const [clients, setClients] = useState<ClientOption[]>([])
@@ -95,30 +97,35 @@ export default function NewCarePlanPage() {
       return
     }
 
+    const selectedClient = clients.find((client) => client.id === clientId)
+    if (!selectedClient) {
+      setError("Selected resident could not be found. Please refresh and try again.")
+      return
+    }
+
     setSubmitting(true)
     try {
-      const payload = {
-        client_id: clientId,
+      const carePlanId = await createCarePlan({
+        clientId,
         title: title.trim(),
         description: description.trim() || null,
         goals: goals.trim() || null,
         interventions: interventions.trim() || null,
-        start_date: startDate ? new Date(startDate).toISOString() : null,
-        end_date: endDate ? new Date(endDate).toISOString() : null,
-        review_date: reviewDate ? new Date(reviewDate).toISOString() : null,
-        is_active: true,
-        created_by: profile.id,
+        startDate: startDate ? new Date(startDate).toISOString() : new Date().toISOString(),
+        endDate: endDate ? new Date(endDate).toISOString() : null,
+        reviewDate: reviewDate ? new Date(reviewDate).toISOString() : null,
+        createdBy: profile.id,
+        isActive: true,
+        clientName: `${selectedClient.first_name} ${selectedClient.last_name}`,
+        creatorName:
+          profile.first_name && profile.last_name ? `${profile.first_name} ${profile.last_name}` : profile.email,
+      })
+
+      if (!carePlanId) {
+        throw new Error('Care plan created but no identifier returned.')
       }
 
-      const { data, error: insertError } = await supabase
-        .from('care_plans')
-        .insert(payload)
-        .select('id')
-        .single()
-
-      if (insertError) throw insertError
-
-      router.push(`/care-plans/${data?.id}`)
+      router.push(`/care-plans/${carePlanId}`)
     } catch (err) {
       console.error('Failed to create care plan', err)
       setError(err instanceof Error ? err.message : 'Unable to create care plan.')
