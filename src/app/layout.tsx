@@ -1,18 +1,21 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Poppins, Fira_Code } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from '@/contexts/AuthContext'
 import ThemeProvider from '@/contexts/ThemeProvider'
 import { CompanySettingsProvider } from '@/contexts/CompanySettingsContext'
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const argonSans = Poppins({
+  variable: "--font-argon-sans",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const argonMono = Fira_Code({
+  variable: "--font-argon-mono",
   subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -27,7 +30,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100 transition-colors`}>        
+      <body className={`${argonSans.variable} ${argonMono.variable} antialiased bg-background text-foreground transition-colors`}>        
         <ThemeProvider>
           <CompanySettingsProvider>
             <AuthProvider>

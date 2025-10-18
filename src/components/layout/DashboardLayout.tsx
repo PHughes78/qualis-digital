@@ -1,12 +1,38 @@
 'use client'
 
+import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useCompanySettings } from '@/contexts/CompanySettingsContext'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Home, Users, FileText, AlertTriangle, BarChart3, LogOut, Menu, Bell, Search, UserCog, User } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  Home,
+  Users,
+  FileText,
+  AlertTriangle,
+  BarChart3,
+  LogOut,
+  Menu,
+  Bell,
+  Search,
+  UserCog,
+  User,
+  Sparkles,
+  Calendar,
+  TrendingUp,
+  Clock,
+  ChevronRight,
+  X,
+} from 'lucide-react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import Image from 'next/image'
@@ -20,9 +46,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { settings } = useCompanySettings()
   const router = useRouter()
   const pathname = usePathname()
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
-  const companyName = settings?.company_name || "Qualis Digital"
-  const logoUrl = settings?.logo_url || "/vercel.svg"
+  const companyName = settings?.company_name || 'Qualis Digital'
+  const logoUrl = settings?.logo_url || '/vercel.svg'
 
   const handleSignOut = async () => {
     await signOut()
@@ -33,7 +60,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
   }
 
-  const getRoleColor = (role: string) => {
+  const getRoleBadgeClass = (role: string) => {
     switch (role) {
       case 'business_owner':
         return 'bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0'
@@ -42,7 +69,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       case 'carer':
         return 'bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0'
       default:
-        return 'bg-gray-100 text-gray-800'
+        return 'bg-muted text-foreground'
     }
   }
 
@@ -68,131 +95,256 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: 'Incidents', href: '/incidents', icon: AlertTriangle, roles: ['carer', 'manager', 'business_owner'] },
   ]
 
-  const filteredNavigation = navigationItems.filter(item => 
-    profile?.role && item.roles.includes(profile.role)
-  )
+  const filteredNavigation = navigationItems.filter((item) => profile?.role && item.roles.includes(profile.role))
+
+  const closeMobileNav = () => setMobileNavOpen(false)
+
+  const renderNavigation = (onNavigate?: () => void) =>
+    filteredNavigation.map((item) => {
+      const Icon = item.icon
+      const isActive = pathname === item.href
+      return (
+        <Link
+          key={item.name}
+          href={item.href}
+          onClick={onNavigate}
+          className={`group flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-smooth ${
+            isActive
+              ? 'bg-gradient-primary text-white shadow-argon'
+              : 'text-muted-foreground hover:text-foreground hover:bg-white/45 dark:hover:bg-white/10'
+          }`}
+        >
+          <span
+            className={`flex size-9 items-center justify-center rounded-xl transition-smooth ${
+              isActive
+                ? 'bg-white/25 text-white'
+                : 'bg-white/40 text-primary group-hover:bg-white/60 dark:bg-white/10 dark:text-white'
+            }`}
+          >
+            <Icon className="size-4" />
+          </span>
+          {item.name}
+        </Link>
+      )
+    })
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-purple-50/20">
-      {/* Navigation Header */}
-      <header className="bg-white/80 backdrop-blur-md shadow-soft border-b border-gray-200/50 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            {/* Logo and Navigation */}
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
+    <div className="relative min-h-screen overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-br from-primary/10 via-background to-secondary/20" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[420px] bg-gradient-primary opacity-40 blur-3xl" />
+
+      <div className="relative mx-auto flex min-h-screen max-w-[120rem] flex-col gap-6 px-4 py-6 sm:px-6 lg:flex-row lg:px-10 lg:py-10">
+        {/* Sidebar */}
+        <aside className="hidden w-full max-w-xs flex-col gap-8 rounded-3xl border border-white/30 bg-card/80 p-6 shadow-argon supports-[backdrop-filter]:backdrop-blur-2xl lg:flex">
+          <div className="flex items-center gap-3 rounded-2xl border border-white/30 bg-white/40 p-4 shadow-soft dark:bg-white/10">
+            <div className="relative flex size-12 items-center justify-center rounded-2xl bg-gradient-primary shadow-argon">
+              <Image src={logoUrl} alt="Company logo" width={36} height={36} className="rounded-xl" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">Company</p>
+              <p className="text-lg font-semibold text-foreground">{companyName}</p>
+            </div>
+          </div>
+
+          <div className="space-y-2">{renderNavigation()}</div>
+
+          <div className="mt-auto rounded-2xl border border-white/30 bg-gradient-to-br from-primary/10 via-white/30 to-secondary/10 p-5 shadow-soft">
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-primary/20 p-2 text-primary">
+                <Sparkles className="size-4" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">Need a hand?</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Explore the resource center for rollout playbooks and branding kits.
+                </p>
+              </div>
+            </div>
+            <Button asChild variant="outline" size="sm" className="mt-4 w-full justify-between rounded-xl border-white/50">
+              <Link href="/help">
+                Visit help center
+                <ChevronRight className="size-4" />
+              </Link>
+            </Button>
+          </div>
+        </aside>
+
+        {/* Mobile navigation */}
+        {mobileNavOpen && (
+          <div className="fixed inset-0 z-50 flex lg:hidden">
+            <div
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={closeMobileNav}
+              aria-hidden="true"
+            />
+            <div className="relative ml-auto flex w-80 flex-col gap-6 overflow-y-auto rounded-l-3xl border border-white/20 bg-card/95 p-6 shadow-argon supports-[backdrop-filter]:backdrop-blur-2xl">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Image src={logoUrl} alt="Logo" width={32} height={32} className="rounded-md" />
-                  <h1 className="text-xl font-bold text-gray-900">{companyName}</h1>
+                  <Image src={logoUrl} alt="Company logo" width={32} height={32} className="rounded-xl" />
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{companyName}</p>
+                    <p className="text-xs text-muted-foreground">{getRoleDisplay(profile?.role ?? '')}</p>
+                  </div>
+                </div>
+                <Button variant="ghost" size="icon-sm" onClick={closeMobileNav}>
+                  <X className="size-4" />
+                  <span className="sr-only">Close menu</span>
+                </Button>
+              </div>
+              <div className="space-y-2">{renderNavigation(closeMobileNav)}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Content area */}
+        <div className="flex flex-1 flex-col gap-6">
+          <header className="rounded-3xl border border-white/30 bg-card/90 p-6 shadow-argon supports-[backdrop-filter]:backdrop-blur-2xl lg:p-8">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex items-start gap-3">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="mr-1 rounded-2xl border-white/40 bg-white/40 shadow-soft hover:bg-white/60 dark:bg-white/10 lg:hidden"
+                  onClick={() => setMobileNavOpen(true)}
+                >
+                  <Menu className="size-5" />
+                  <span className="sr-only">Open navigation</span>
+                </Button>
+                <div className="flex flex-col gap-3">
+                  <Badge variant="outline" className="w-fit border-white/40 bg-white/40 text-xs uppercase tracking-[0.3em]">
+                    Dashboard
+                  </Badge>
+                  <div>
+                    <h1 className="text-3xl font-semibold text-foreground sm:text-4xl">
+                      {profile ? `Welcome back, ${profile.first_name}` : 'Welcome back'}
+                    </h1>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Here is a real time pulse across your care network and the people you support.
+                    </p>
+                  </div>
                 </div>
               </div>
-              <nav className="hidden md:flex ml-10 space-x-2">
-                {filteredNavigation.map((item) => {
-                  const Icon = item.icon
-                  const isActive = pathname === item.href
-                  return (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      className={`flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                        isActive 
-                          ? 'bg-gradient-primary text-white shadow-md' 
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100/80'
-                      }`}
-                    >
-                      <Icon className="h-4 w-4 mr-2" />
-                      {item.name}
-                    </Link>
-                  )
-                })}
-              </nav>
-            </div>
 
-            {/* User Profile & Actions */}
-            <div className="flex items-center space-x-3">
-              {/* Search Button */}
-              <Button variant="ghost" size="sm" className="hidden sm:flex rounded-full hover:bg-gray-100">
-                <Search className="h-4 w-4" />
-              </Button>
+              <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+                <div className="flex items-center gap-2 rounded-2xl border border-white/40 bg-white/40 px-4 py-2 text-sm text-muted-foreground shadow-soft transition-smooth focus-within:ring-2 focus-within:ring-primary/40 dark:bg-white/10 sm:min-w-[220px]">
+                  <Search className="size-4" />
+                  <input
+                    type="search"
+                    placeholder="Search dashboard"
+                    className="w-full border-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+                  />
+                </div>
 
-              {/* Notifications */}
-              <Button variant="ghost" size="sm" className="relative rounded-full hover:bg-gray-100">
-                <Bell className="h-4 w-4" />
-                <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full"></span>
-              </Button>
-
-              {/* Role Badge */}
-              {profile && (
-                <Badge className={`${getRoleColor(profile.role)} shadow-sm`}>
-                  {getRoleDisplay(profile.role)}
-                </Badge>
-              )}
-              
-              {/* User Dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-10 w-10 rounded-full ring-2 ring-offset-2 ring-blue-500/20 hover:ring-blue-500/40 transition-all">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.first_name} />
-                      <AvatarFallback className="bg-gradient-primary text-white">
-                        {profile ? getInitials(profile.first_name, profile.last_name) : 'U'}
-                      </AvatarFallback>
-                    </Avatar>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="icon-sm" className="relative rounded-2xl border border-white/30">
+                    <Bell className="size-4" />
+                    <span className="absolute right-1 top-1 block size-2 rounded-full bg-destructive" />
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" align="end" forceMount>
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">
-                        {profile ? `${profile.first_name} ${profile.last_name}` : 'User'}
-                      </p>
-                      <p className="text-xs leading-none text-muted-foreground">
-                        {profile?.email}
-                      </p>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  
-                  {/* Users Management - Business Owner Only */}
-                  {profile?.role === 'business_owner' && (
-                    <>
+
+                  {profile && (
+                    <Badge className={`${getRoleBadgeClass(profile.role)} hidden sm:inline-flex`}>
+                      {getRoleDisplay(profile.role)}
+                    </Badge>
+                  )}
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        className="relative h-11 w-11 rounded-2xl border border-white/40 bg-white/40 p-0 shadow-soft hover:bg-white/60 dark:bg-white/10"
+                      >
+                        <Avatar className="h-11 w-11">
+                          <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.first_name} />
+                          <AvatarFallback className="bg-gradient-primary text-white">
+                            {profile ? getInitials(profile.first_name, profile.last_name) : 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-60" align="end" forceMount>
+                      <DropdownMenuLabel className="font-normal">
+                        <div className="flex flex-col space-y-1">
+                          <p className="text-sm font-medium leading-none">
+                            {profile ? `${profile.first_name} ${profile.last_name}` : 'User'}
+                          </p>
+                          <p className="text-xs leading-none text-muted-foreground">{profile?.email}</p>
+                        </div>
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+
+                      {profile?.role === 'business_owner' && (
+                        <>
+                          <DropdownMenuItem asChild className="cursor-pointer">
+                            <Link href="/users" className="flex items-center">
+                              <UserCog className="mr-2 size-4" />
+                              User management
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                        </>
+                      )}
+
                       <DropdownMenuItem asChild className="cursor-pointer">
-                        <Link href="/users" className="flex items-center">
-                          <UserCog className="mr-2 h-4 w-4" />
-                          User Management
+                        <Link href="/profile" className="flex items-center">
+                          <User className="mr-2 size-4" />
+                          Profile settings
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                    </>
-                  )}
-                  
-                  <DropdownMenuItem asChild className="cursor-pointer">
-                    <Link href="/profile" className="flex items-center">
-                      <User className="mr-2 h-4 w-4" />
-                      Profile Settings
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-red-600 focus:text-red-600">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Sign Out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              {/* Mobile menu button */}
-              <Button variant="ghost" size="sm" className="md:hidden rounded-full">
-                <Menu className="h-5 w-5" />
-              </Button>
+                      <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-destructive focus:text-destructive">
+                        <LogOut className="mr-2 size-4" />
+                        Sign out
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        {children}
-      </main>
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
+              <div className="rounded-2xl border border-white/30 bg-white/40 p-5 shadow-soft transition-smooth hover:-translate-y-0.5 dark:bg-white/10">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Care tasks</span>
+                  <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary">
+                    +12%
+                  </Badge>
+                </div>
+                <div className="mt-3 flex items-end justify-between">
+                  <p className="text-3xl font-semibold text-foreground">18</p>
+                  <TrendingUp className="size-5 text-primary" />
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">Completed since yesterday</p>
+              </div>
+
+              <div className="rounded-2xl border border-white/30 bg-white/40 p-5 shadow-soft transition-smooth hover:-translate-y-0.5 dark:bg-white/10">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Upcoming shift</span>
+                  <Clock className="size-4 text-primary" />
+                </div>
+                <p className="mt-3 text-3xl font-semibold text-foreground">6:30 PM</p>
+                <p className="mt-2 text-xs text-muted-foreground">Next team handover window</p>
+              </div>
+
+              <div className="rounded-2xl border border-white/30 bg-gradient-to-br from-secondary/20 via-white/40 to-primary/10 p-5 shadow-soft transition-smooth hover:-translate-y-0.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                    Schedule
+                  </span>
+                  <Calendar className="size-4 text-primary" />
+                </div>
+                <p className="mt-3 text-3xl font-semibold text-foreground">14</p>
+                <p className="mt-2 text-xs text-muted-foreground">Care plans due this week</p>
+              </div>
+            </div>
+          </header>
+
+          <main className="flex-1">
+            <div className="rounded-3xl border border-white/30 bg-card/90 p-6 shadow-soft supports-[backdrop-filter]:backdrop-blur-2xl lg:p-8">
+              {children}
+            </div>
+          </main>
+        </div>
+      </div>
     </div>
   )
 }

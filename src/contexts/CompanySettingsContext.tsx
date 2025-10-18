@@ -10,6 +10,7 @@ interface CompanySettings {
   logo_url: string | null
   primary_color: string | null
   updated_at: string
+  chatgpt_api_key_set: boolean
 }
 
 interface CompanySettingsContextType {
@@ -25,20 +26,42 @@ export function CompanySettingsProvider({ children }: { children: React.ReactNod
   const [loading, setLoading] = useState(true)
   const supabase = useMemo(() => createClient(), [])
 
+  const fallbackSettings: CompanySettings = {
+    id: 'fallback',
+    company_name: 'Qualis Digital',
+    company_description: 'Unified UK care management platform',
+    logo_url: null,
+    primary_color: '#2563eb',
+    updated_at: new Date().toISOString(),
+    chatgpt_api_key_set: false,
+  }
+
   const fetchSettings = async () => {
     try {
       const { data, error } = await supabase
         .from('company_settings')
-        .select('*')
-        .single()
+        .select('id, company_name, company_description, logo_url, primary_color, updated_at, chatgpt_api_key')
+        .maybeSingle()
 
       if (error) {
         console.error('Error fetching company settings:', error)
+        setSettings(fallbackSettings)
+      } else if (data) {
+        setSettings({
+          id: data.id,
+          company_name: data.company_name,
+          company_description: data.company_description,
+          logo_url: data.logo_url,
+          primary_color: data.primary_color,
+          updated_at: data.updated_at,
+          chatgpt_api_key_set: Boolean(data.chatgpt_api_key),
+        })
       } else {
-        setSettings(data)
+        setSettings(fallbackSettings)
       }
     } catch (err) {
       console.error('Exception fetching company settings:', err)
+      setSettings(fallbackSettings)
     } finally {
       setLoading(false)
     }

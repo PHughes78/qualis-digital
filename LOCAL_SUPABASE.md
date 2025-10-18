@@ -103,6 +103,17 @@ Use the Studio SQL editor or your app to add:
 - Care plans
 - Handovers
 
+### 5. Seed Phase 2 Sample Data
+After running the Phase 2 migration locally, populate the new workflow tables:
+```bash
+supabase db query < supabase/seeds/phase2_sample_data.sql
+```
+Then run the read-only smoke queries to confirm everything seeded correctly:
+```bash
+supabase db query < supabase/tests/phase2_smoke.sql
+```
+You should see at least one care plan version, incident action, staffing assignment, and occupancy snapshot in the result sets.
+
 ### 4. View Emails
 All emails sent by your app appear in Mailpit at http://127.0.0.1:54324
 

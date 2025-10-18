@@ -16,7 +16,7 @@ import Image from "next/image"
 export default function CompanySettingsPage() {
   const router = useRouter()
   const { profile, loading: authLoading } = useAuth()
-  const { settings, refreshSettings } = useCompanySettings()
+  const { settings, loading: settingsLoading, refreshSettings } = useCompanySettings()
   const supabase = useMemo(() => createClient(), [])
 
   const [companyName, setCompanyName] = useState("")
@@ -24,6 +24,10 @@ export default function CompanySettingsPage() {
   const [primaryColor, setPrimaryColor] = useState("#2563eb")
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
+  const [assistantKeyInput, setAssistantKeyInput] = useState("")
+  const [assistantMessage, setAssistantMessage] = useState("")
+  const [assistantError, setAssistantError] = useState("")
+  const [assistantLoading, setAssistantLoading] = useState(false)
   
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -137,6 +141,87 @@ export default function CompanySettingsPage() {
     }
   }
 
+  const handleAssistantSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setAssistantError("")
+    setAssistantMessage("")
+
+    if (!assistantKeyInput.trim()) {
+      setAssistantError("Enter a valid ChatGPT API key before saving.")
+      return
+    }
+
+    if (settingsLoading) {
+      setAssistantError("Company settings are still loading. Please try again in a moment.")
+      return
+    }
+
+    if (!settings?.id) {
+      setAssistantError("Company settings could not be loaded. Refresh the page and try again.")
+      return
+    }
+
+    setAssistantLoading(true)
+    try {
+      const { error: updateError } = await supabase
+        .from('company_settings')
+        .update({ chatgpt_api_key: assistantKeyInput.trim() })
+        .eq('id', settings.id)
+
+      if (updateError) {
+        if (updateError.code === 'PGRST204') {
+          setAssistantError(
+            'The database schema is missing the chatgpt_api_key column. Please apply migration 010_company_ai_settings.sql on Supabase before saving keys.'
+          )
+          return
+        }
+        throw updateError
+      }
+
+      setAssistantMessage("AI guidance key saved successfully.")
+      setAssistantKeyInput("")
+      await refreshSettings()
+    } catch (err: unknown) {
+      setAssistantError(err instanceof Error ? err.message : "Failed to save API key")
+    } finally {
+      setAssistantLoading(false)
+    }
+  }
+
+  const handleAssistantRemove = async () => {
+    if (!settings?.id) {
+      setAssistantError("Company settings could not be loaded. Refresh the page and try again.")
+      return
+    }
+    setAssistantError("")
+    setAssistantMessage("")
+    setAssistantLoading(true)
+
+    try {
+      const { error: updateError } = await supabase
+        .from('company_settings')
+        .update({ chatgpt_api_key: null })
+        .eq('id', settings.id)
+
+      if (updateError) {
+        if (updateError.code === 'PGRST204') {
+          setAssistantError(
+            'The database schema is missing the chatgpt_api_key column. Please apply migration 010_company_ai_settings.sql on Supabase before saving keys.'
+          )
+          return
+        }
+        throw updateError
+      }
+
+      setAssistantMessage("AI guidance key removed.")
+      await refreshSettings()
+    } catch (err: unknown) {
+      setAssistantError(err instanceof Error ? err.message : "Failed to remove API key")
+    } finally {
+      setAssistantLoading(false)
+    }
+  }
+
   if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -147,6 +232,14 @@ export default function CompanySettingsPage() {
 
   if (!profile || profile.role !== 'business_owner') {
     return null
+  }
+
+  if (settingsLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p>Loading company settings…</p>
+      </div>
+    )
   }
 
   return (
@@ -300,6 +393,60 @@ export default function CompanySettingsPage() {
             <p className="text-white/90">
               {companyDescription || "Company description will appear here"}
             </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="mt-8">
+        <CardHeader>
+          <CardTitle>AI Guidance Assistant</CardTitle>
+          <CardDescription>
+            Provide your OpenAI ChatGPT API key to enable contextual best-practice tips across the platform.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {assistantError && (
+              <Alert variant="destructive">
+                <AlertDescription>{assistantError}</AlertDescription>
+              </Alert>
+            )}
+            {assistantMessage && (
+              <Alert>
+                <AlertDescription>{assistantMessage}</AlertDescription>
+              </Alert>
+            )}
+            <form onSubmit={handleAssistantSave} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="chatgpt-key">ChatGPT API Key</Label>
+                <Input
+                  id="chatgpt-key"
+                  type="password"
+                  placeholder={settings?.chatgpt_api_key_set ? "••••••••••••••" : "sk-..."}
+                  value={assistantKeyInput}
+                  onChange={(event) => setAssistantKeyInput(event.target.value)}
+                  disabled={assistantLoading}
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Keys are stored securely and only used to generate short best-practice recommendations.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Button type="submit" disabled={assistantLoading || !assistantKeyInput.trim()}>
+                  {assistantLoading ? "Saving..." : "Save key"}
+                </Button>
+                {settings?.chatgpt_api_key_set ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleAssistantRemove}
+                    disabled={assistantLoading}
+                  >
+                    Remove key
+                  </Button>
+                ) : null}
+              </div>
+            </form>
           </div>
         </CardContent>
       </Card>

@@ -1,11 +1,27 @@
 ﻿'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Users, Home, Building, UserPlus, Plus, Loader2, FileText, ClipboardList, AlertTriangle, CheckCircle, Clock, Settings, User } from 'lucide-react'
+import {
+  Users,
+  Home,
+  Building,
+  UserPlus,
+  Plus,
+  Loader2,
+  FileText,
+  ClipboardList,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  Settings,
+  User,
+  TrendingUp,
+} from 'lucide-react'
 import Link from 'next/link'
+import { useOwnerAnalytics } from '@/hooks/use-owner-analytics'
 
 interface DashboardStats {
   totalCareHomes: number
@@ -43,6 +59,12 @@ export default function BusinessOwnerDashboard() {
   })
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
+  const {
+    analytics,
+    loading: analyticsLoading,
+    error: analyticsError,
+    refresh: refreshAnalytics,
+  } = useOwnerAnalytics()
 
   useEffect(() => {
     fetchDashboardStats()
@@ -146,8 +168,75 @@ export default function BusinessOwnerDashboard() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Business Overview</h2>
-        <p className="text-gray-600 dark:text-gray-400">Your care business at a glance</p>
+        <p className="text-gray-600 dark:text-gray-400">
+          Key metrics across your homes, residents, staff, and compliance.
+        </p>
       </div>
+
+      <Card>
+        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              Operational Analytics
+            </CardTitle>
+            <CardDescription>Emerging trends across the last 30 days.</CardDescription>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => {
+              fetchDashboardStats()
+              refreshAnalytics()
+            }}>
+              Refresh analytics
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {analyticsError ? (
+            <p className="mb-3 text-sm text-red-500">
+              Unable to load analytics. Please refresh to try again.
+            </p>
+          ) : null}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <AnalyticsTile
+              title="Occupancy trend"
+              description="Change vs. last snapshot"
+              value={`${occupancySummary(analytics?.occupancyTrend).currentRate.toFixed(0)}%`}
+              delta={occupancySummary(analytics?.occupancyTrend).delta}
+              loading={analyticsLoading}
+            />
+            <AnalyticsTile
+              title="Incident load"
+              description="Live incident status"
+              value={`${analytics?.incidentBreakdown.open ?? 0} open`}
+              highlight={
+                analytics?.incidentBreakdown.investigating
+                  ? `${analytics.incidentBreakdown.investigating} investigating`
+                  : undefined
+              }
+              loading={analyticsLoading}
+            />
+            <AnalyticsTile
+              title="Review pipeline"
+              description="Upcoming vs. overdue"
+              value={`${analytics?.reviewPipeline.upcoming ?? 0} upcoming`}
+              highlight={
+                analytics?.reviewPipeline.overdue
+                  ? `${analytics.reviewPipeline.overdue} overdue`
+                  : `${analytics?.reviewPipeline.completedLast30Days ?? 0} completed`
+              }
+              loading={analyticsLoading}
+            />
+            <AnalyticsTile
+              title="Staff distribution"
+              description="Active team members"
+              value={`${analytics?.staffDistribution.carers ?? 0} carers`}
+              highlight={`${analytics?.staffDistribution.managers ?? 0} managers • ${analytics?.staffDistribution.other ?? 0} other`}
+              loading={analyticsLoading}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
@@ -474,8 +563,63 @@ export default function BusinessOwnerDashboard() {
               Incidents
             </Link>
           </Button>
+          <Button variant="outline" onClick={() => {
+            fetchDashboardStats()
+            refreshAnalytics()
+          }}>
+            <TrendingUp className="h-4 w-4 mr-2" />
+            Refresh analytics
+          </Button>
         </CardContent>
       </Card>
+
+    </div>
+  )
+}
+
+function occupancySummary(trend?: { occupancyRate: number }[]) {
+  if (!trend || trend.length === 0) {
+    return { currentRate: 0, delta: 0 }
+  }
+  const current = trend[trend.length - 1].occupancyRate
+  const previous = trend.length > 1 ? trend[trend.length - 2].occupancyRate : current
+  const delta = current - previous
+  return { currentRate: current, delta }
+}
+
+function AnalyticsTile({
+  title,
+  description,
+  value,
+  highlight,
+  delta,
+  loading,
+}: {
+  title: string
+  description: string
+  value: string
+  highlight?: string
+  delta?: number
+  loading: boolean
+}) {
+  return (
+    <div className="rounded-2xl border border-muted bg-card/80 p-4 supports-[backdrop-filter]:backdrop-blur-xl">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
+          <p className="text-sm text-muted-foreground">{description}</p>
+        </div>
+        {typeof delta === 'number' && delta !== 0 ? (
+          <span className={delta > 0 ? 'text-emerald-600 text-xs' : 'text-red-600 text-xs'}>
+            {delta > 0 ? '+' : ''}
+            {delta.toFixed(1)}%
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-3 text-2xl font-bold text-foreground">
+        {loading ? <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /> : value}
+      </div>
+      {highlight ? <p className="mt-2 text-xs text-muted-foreground">{highlight}</p> : null}
     </div>
   )
 }
