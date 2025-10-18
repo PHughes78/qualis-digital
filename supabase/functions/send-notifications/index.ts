@@ -4,10 +4,11 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.48.0'
 
-const supabaseUrl = Deno.env.get('SUPABASE_URL')
-const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-const resendApiKey = Deno.env.get('RESEND_API_KEY')
-const emailFrom = Deno.env.get('NOTIFICATION_EMAIL_FROM') ?? 'Qualis Digital <no-reply@qualis.digital>'
+const supabaseUrl = Deno.env.get('SUPABASE_URL')?.trim()
+const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')?.trim()
+const resendApiKey = Deno.env.get('RESEND_API_KEY')?.trim()
+const emailFrom =
+  Deno.env.get('NOTIFICATION_EMAIL_FROM')?.trim() ?? 'Qualis Digital <no-reply@qualis.digital>'
 
 if (!supabaseUrl || !serviceRoleKey) {
   throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set for the send-notifications function.')

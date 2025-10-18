@@ -9,6 +9,13 @@ const appBaseUrl =
   process.env.NEXT_PUBLIC_APP_URL ??
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')
 
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
+
+if (!supabaseUrl || !supabaseServiceRoleKey) {
+  throw new Error('Supabase URL and service role key must be set')
+}
+
 type IncidentCreatedEvent = {
   type: 'incident.created'
   incidentId: string
@@ -38,8 +45,8 @@ type CarePlanCreatedEvent = {
 type WorkflowEventPayload = IncidentCreatedEvent | CarePlanCreatedEvent
 
 const serviceClient = createServiceClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  supabaseUrl,
+  supabaseServiceRoleKey,
   {
     auth: {
       persistSession: false,
